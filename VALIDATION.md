@@ -1,5 +1,17 @@
 # Release validation - 0.2.0
 
+## Windows CI watcher correction - 2026-09-12
+
+The first [GitHub Actions run](https://github.com/yyd-hndx/opencode-review/actions/runs/34692504358)
+aborted the native bridge and recovery test processes in libuv's Windows
+`fs-event.c:72`. Its temporary directory used the `RUNNER~1` short-name alias.
+This matches the upstream [short-path watcher assertion](https://github.com/libuv/libuv/issues/5010).
+Both file-watcher entrypoints now expand their directory with
+`fs.realpathSync.native` before registering the watcher. The new regression
+uses a separate process and an actual 8.3 path; it skips on volumes without
+short-name support. Earlier local intermittent failures remain unclassified
+because their failing assertions were not retained.
+
 ## Publication recheck - 2026-09-12
 
 Rechecked the supplied 0.2.0 archive on Windows with Node.js 24.19.0 and

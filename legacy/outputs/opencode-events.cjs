@@ -148,7 +148,8 @@ async function main() {
     }).catch(error => log('delivery_error', { message: error.message.slice(0, 300) }));
   }
   runtime('starting');
-  const fileWatcher = probeSession ? null : fs.watch(work, (_, name) => {
+  // libuv requires the expanded path on Windows, including 8.3 temp aliases.
+  const fileWatcher = probeSession ? null : fs.watch(fs.realpathSync.native(work), (_, name) => {
     if (name === 'review-cycle.json') schedule();
   });
   if (!probeSession) {

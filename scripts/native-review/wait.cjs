@@ -43,7 +43,9 @@ async function waitForResult(cycle, options) {
     };
     // Watch the directory because state is persisted by an atomic rename.
     try {
-      watcher = fs.watch(cycle, (_event, name) => {
+      // Expand Windows 8.3 aliases before libuv compares notification paths.
+      // A short/long path mismatch can abort Node before an error is catchable.
+      watcher = fs.watch(fs.realpathSync.native(cycle), (_event, name) => {
         if (name === null || String(name) === 'state.json') inspect();
       });
       watcher.on('error', error => finish(error));
