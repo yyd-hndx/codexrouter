@@ -58,6 +58,10 @@ back to a second delivery channel after an ambiguous send.
 
 An executor compaction summary is intermediate. Preserve the original dispatch
 ID and verify the continuation chain; do not accept the summary as completion.
+Owner conversation compaction is separate: persist the exact review target before
+callback submission, then resume that target after compaction. See
+[owner review recovery](compact-recovery.md) for the existing-state protocol and
+optional host hook. A notification's transport role never changes its provenance.
 User conversation topic changes do not cancel existing delegated work. Explicit
 stop/cancel does; delayed callbacks must then be ignored.
 

@@ -21,6 +21,14 @@ $owner = $env:CODEX_THREAD_ID
 
 The owner must be the actual Codex task. Outside Codex, do not invent a task ID and assume queue/heartbeat integration works. Use this skill inside the intended task for the complete review flow.
 
+## Optional owner-context recovery hook
+
+`node scripts/configure-hook.cjs` prints host TOML for this installation path;
+it does not edit or trust your Codex configuration. Install only when requested,
+after checking host support and existing registrations. See
+[compact-recovery.md](compact-recovery.md) for setup, dynamic owner filtering,
+verification and limitations. Ordinary dispatch does not require hook setup.
+
 ## Grok Build installation
 
 Run from the skill directory:

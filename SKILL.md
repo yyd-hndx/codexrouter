@@ -37,12 +37,16 @@ Interpret executor aliases only when context refers to the executor.
 
 Use the selected backend's workflow and state; OpenCode state/commands do not apply
 to native ACP backends. Inspection, stop or recovery requests do not start a cycle.
+For DeepSeek on a new Windows workspace, or after tool/transport failure, use
+[DeepSeek environment checks](references/deepseek-troubleshooting.md). Session
+`ready` verifies protocol/model binding, not shell permissions or API health.
 
 ## Shared constraints
 
 - Default to at most three implementation rounds; announce the bound and honor
   the user's limit. Extra rounds require authorization. Each cycle starts empty
   in the exact project root, without imported/forked history; repairs reuse it.
+  A replacement cycle does not reset the task's consumed dispatch allowance.
 - Preserve explicit prompts verbatim on native backends. Legacy OpenCode appends
   a dispatch marker and cannot currently meet byte-exact prompt requirements;
   disclose that limitation and ask before changing the user's selected executor.
@@ -64,8 +68,15 @@ against actual state. Independently verify the artifacts and relevant regression
 executor reports and compaction summaries alone do not prove completion. Record
 the exact reviewed response and report verified results or the remaining blocker.
 
+If the owner conversation compacts while reviewing, recover from the owned cycle
+and its pinned response, not the last visible historical user request. Continue
+the unfinished review unless actual newer user input changes the work. Do not
+repeat completed checks when their sources still match. The final response must
+address the work being finished. Read [compact-recovery.md](references/compact-recovery.md)
+for recovery, state loss and optional host hook setup. This skill manages its own
+delegated reviews only; it does not maintain a global conversation task queue.
+
 All backends default to asynchronous delivery. Use bounded `Wait`/`wait` for a
 requested status check or callback verification; foreground waiting is opt-in.
 A dispatch receipt is not task completion. An uncertain send requires read-only
-reconciliation, never blind resubmission. Do not run the skill's test suite merely
-to delegate a task. Keep normal progress quiet and preserve healthy services.
+reconciliation, never blind resubmission. Keep normal progress quiet and preserve healthy services.

@@ -29,7 +29,8 @@ function noticeFor(cycle, snapshot) {
   const bindingMismatch = (Object.hasOwn(snapshot, 'binding')
     ? !snapshot.binding || snapshot.binding.request.info.id !== cycle.submittedMessageId
     : lastUser.info.id !== cycle.submittedMessageId)
-    || cycle.status !== 'waiting_for_grok'
+    || !['waiting_for_grok', 'callback_pending'].includes(cycle.status)
+    || (cycle.dispatch?.responseId && cycle.dispatch.responseId !== last?.info.id)
     || (last?.info.role === 'assistant' && last.info.parentID && last.info.parentID !== lastUser.info.id);
   const request = permissions[0] || questions[0];
   let reason;
@@ -73,7 +74,7 @@ function watchdogObservation(cycle, snapshot, previous, now = Date.now()) {
   const tool = last?.parts?.find(part => part.type === 'tool' && ['pending', 'running'].includes(part.state?.status));
   const unfinished = ['busy', 'retry'].includes(status?.type) || tool
     || snapshot.binding?.pendingCompaction || last?.info.summary === true || last?.info.mode === 'compaction'
-    || !cycle.submittedMessageId || cycle.status !== 'waiting_for_grok'
+    || !cycle.submittedMessageId || !['waiting_for_grok', 'callback_pending'].includes(cycle.status)
     || !last || last.info.role !== 'assistant' || !last.info.time?.completed || last.info.finish !== 'stop';
   if (!unfinished || now - monitor.lastProgressAt < POLL_INTERVAL_MS) return { monitor, notice: null };
   // A declared long tool timeout is legitimate work until its deadline plus grace.
@@ -125,6 +126,8 @@ async function main() {
   }
   const reconcile = createReconciler({
     readCycle: () => readJson(statePath), readLedger: () => readJson(ledgerPath, { delivered: [] }),
+    lockCycle: () => acquireLock(path.join(work, 'dispatch.lock')),
+    saveCycle: value => saveJson(statePath, value),
     saveLedger: value => saveJson(ledgerPath, value), api,
     noticeFor, watchdog: watchdogObservation, unavailable: unavailableObservation,
     queue: (thread, message) => execFile(cli, ['queue', '--thread', thread, '--message', message],

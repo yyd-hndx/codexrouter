@@ -23,9 +23,15 @@ session, model and effort. Retain its returned absolute `cycle` path and check
 `status: ready` before sending. One active native cycle is allowed per project;
 cycles of other tasks and the legacy OpenCode cycle must remain untouched.
 
+`ready` establishes the session and configured model/effort. It does not test
+the provider request path or Windows shell sandbox. For a new Windows DeepSeek
+workspace, run the read-only preflight in [deepseek-troubleshooting.md](deepseek-troubleshooting.md)
+before dispatch; reuse valid evidence for an unchanged workspace/configuration.
+
 `--permission reject` is the default. `allow_once` auto-selects the ACP permission
 option of that name for this session, so use it only for a task whose tool
-execution is authorized. These agents are not a filesystem sandbox. Do not infer
+execution is authorized. The bridge is not a filesystem sandbox; an executor can
+add its own OS sandbox. ACP permission does not grant Windows WRITE_DAC. Do not infer
 permission for destructive or external actions from a broad coding request.
 
 Permission requests and the exact selected/cancelled replies are journaled. Read-only
@@ -134,6 +140,12 @@ a new cycle after lock release; inspect the recorded process and reconcile first
   restart/reattach after worker crashes. Native logs remain for manual recovery.
   Missing/foreign IDs, compaction ambiguities or truncated journals fail closed.
   Do not pretend a summary is task completion or replace the original request ID.
+- A settled provider error is not a completed response: `review` cannot accept
+  it, and `send` cannot resume `paused_reconcile`. Diagnose the failure before
+  deciding whether the still-authorized task can use a fresh session. Preserve
+  the failed cycle, verify its owned processes exit, and carry forward cumulative
+  dispatch usage. Do not edit status/round fields or loop fresh cycles on the same
+  unresolved error. See [failure recovery](deepseek-troubleshooting.md#failure-recovery).
 - For an ambiguous callback or queue receipt, verify the actual owner-thread message first.
   A live worker accepts `ack-delivery --key <exact delivery.key>` only after this
   inspection; it acknowledges the existing event without sending another message.

@@ -3,7 +3,7 @@ const { randomUUID } = require('node:crypto');
 const { promisify } = require('node:util');
 const execFile = promisify(require('node:child_process').execFile);
 const { readJson, saveJson, acquireLock, normalizeDirectory, fingerprint,
-  marker, hash, resolveBinding, bindingRecord } = require('./opencode-state.cjs');
+  marker, hash, resolveBinding, bindingRecord, completedCycle } = require('./opencode-state.cjs');
 const work = path.resolve(__dirname, '../work/opencode-bridge');
 const statePath = path.join(work, 'review-cycle.json');
 
@@ -21,7 +21,7 @@ async function dispatch(input, deps) {
     let cycle = deps.read();
     checkOwner(cycle, input);
     if (input.action === 'reconcile') {
-      if (!['dispatching', 'deliveryUncertain', 'waiting_for_grok'].includes(cycle.status)) throw Error('Cycle is not awaiting dispatch reconciliation.');
+      if (!['dispatching', 'deliveryUncertain', 'waiting_for_grok', 'callback_pending', 'reviewing'].includes(cycle.status)) throw Error('Cycle is not awaiting dispatch reconciliation.');
       const session = await deps.api('/session/' + cycle.sessionId, cycle);
       if (normalizeDirectory(session.directory) !== normalizeDirectory(cycle.directory)) throw Error('Actual session directory mismatch.');
       const messages = await deps.api('/session/' + cycle.sessionId + '/message', cycle);
@@ -32,12 +32,15 @@ async function dispatch(input, deps) {
       const request = binding.request;
       if (fingerprint(deps.read()) !== fingerprint(cycle)) throw Error('Cycle changed during reconciliation.');
       cycle = { ...cycle, submittedMessageId: request.info.id,
-        round: cycle.dispatch?.nextRound ?? cycle.round, status: 'waiting_for_grok',
+        round: cycle.dispatch?.nextRound ?? cycle.round,
+        status: ['callback_pending', 'reviewing'].includes(cycle.status) ? cycle.status : 'waiting_for_grok',
         requestBinding: bindingRecord(cycle, binding) };
+      cycle = completedCycle(cycle, messages);
       deps.save(cycle);
-      await deps.startListener();
+      if (cycle.status !== 'reviewing') await deps.startListener();
       return { submitted: true, reconciled: true, sessionId: cycle.sessionId,
-        submittedMessageId: request.info.id, effectiveRequestId: binding.effectiveRequest.info.id, round: cycle.round };
+        submittedMessageId: request.info.id, effectiveRequestId: binding.effectiveRequest.info.id,
+        status: cycle.status, responseId: cycle.dispatch?.responseId || null, round: cycle.round };
     }
     if (!['ready_to_dispatch', 'reviewing'].includes(cycle.status)) throw Error('Send requires ready_to_dispatch or reviewing. Use Reconcile for an uncertain prior send.');
     if (!input.prompt?.trim() || !input.variant?.trim()) throw Error('A prompt and explicit variant are required.');
@@ -59,6 +62,7 @@ async function dispatch(input, deps) {
     if (cycle.round === 0 && messages.length) throw Error('A new cycle requires a verified empty session.');
     if (cycle.round > 0 && (!cycle.lastReviewedAssistantMessageId
       || messages.at(-1)?.info.id !== cycle.lastReviewedAssistantMessageId)) throw Error('Latest response must be reviewed before another dispatch.');
+    if (cycle.dispatch?.responseId && cycle.dispatch.responseId !== cycle.lastReviewedAssistantMessageId) throw Error('Pinned response must be reviewed before another dispatch.');
     if (fingerprint(deps.read()) !== fingerprint(cycle)) throw Error('Cycle changed during preflight.');
     const id = randomUUID();
     const prompt = input.prompt + '\n\n' + marker(id);

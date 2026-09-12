@@ -1,4 +1,37 @@
-# Release validation - 0.2.0
+# Release validation
+
+## 0.2.1 source update
+
+Updated from the supplied `opencode-review-v0.2.1.zip`. The repository retains
+the `codexrouter` name, concise README, Windows watcher path correction and
+checks-only CI. Test files from the archive are excluded from the repository.
+The optional recovery-hook generator only prints configuration; publishing this
+version does not install a hook or change the user's Codex configuration.
+
+The installed skill's DeepSeek preflight and environment-recovery guidance are
+included, with an opt-in DNS preload adapted to resolve dependencies from the
+selected runtime instead of a private installation path. Existing release
+fixes for permission evidence, shutdown, notification configuration and Windows
+watchers are retained.
+
+Publication checks on Windows with Node.js 24.19.0 and PowerShell 7:
+
+- An isolated copy of the final runtime passed 145 checks, 0 failed and 0 skipped,
+  in approximately 164 seconds. This used the archive's 140 tests plus five
+  installed DNS-routing checks. These test files are not shipped in this repository.
+- All 25 published runtime scripts matched the isolated copy. Syntax checks
+  passed for 22 JavaScript files and three PowerShell files.
+- The read-only preflight ran against a disposable workspace with the installed
+  official DeepSeek runtime and sandbox 0.1.5-rc.1. The portable preload resolved
+  that runtime's installed dependency successfully in a separate process.
+- Skill metadata and the 49-file release scan passed.
+
+These checks made no model requests, changed no ACLs and installed no host hook.
+They do not certify a real provider request, live callback or another workspace's
+sandbox permissions. GitHub CI runs the retained installation/environment/release
+checks rather than the removed regression suite.
+
+## Historical 0.2.0 validation
 
 The test suite and its fixtures were removed after the
 [127-test CI run passed](https://github.com/yyd-hndx/codexrouter/actions/runs/34693251699).

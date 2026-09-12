@@ -42,6 +42,8 @@ npm run doctor -- --config config.local.json
 
 使用 Grok Build 或 OpenCode，见[执行器配置](references/configuration.md)。
 
+DeepSeek 在 Windows 上遇到命令权限或连接超时问题，见[排查步骤](references/deepseek-troubleshooting.md)。
+
 ### 3. 配置完成通知
 
 按[回调配置](references/result-delivery.md#local-callback-channel)连接本机 Codex App Tools，然后在 Codex 的任务环境中检查：
@@ -51,6 +53,8 @@ node scripts/owner-notify.cjs probe
 ```
 
 这样执行器做完后，结果才会回到原对话。没有可用的回调通道时，可以明确让 Codex 在当前回合等待。
+
+需要在对话压缩后自动接着检查代码，可以按[恢复配置](references/compact-recovery.md)启用可选 hook。
 
 ### 4. 开始使用
 

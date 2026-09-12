@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID, createHash } = require('node:crypto');
 
-const ACTIVE = ['dispatching', 'waiting_for_grok', 'deliveryUncertain'];
+const ACTIVE = ['dispatching', 'waiting_for_grok', 'callback_pending', 'deliveryUncertain'];
 function readJson(file, fallback) {
   try { return JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')); }
   catch (error) { if (error.code === 'ENOENT' && fallback !== undefined) return fallback; throw error; }
@@ -111,5 +111,20 @@ function bindingRecord(cycle, binding) {
     pendingCompaction: binding.pendingCompaction };
 }
 
+function completedCycle(cycle, messages) {
+  if (!['waiting_for_grok', 'callback_pending', 'reviewing'].includes(cycle.status)) return cycle;
+  const binding = resolveBinding(cycle, messages), last = messages.at(-1);
+  if (!binding || binding.pendingCompaction || !cycle.dispatch?.id
+    || !require('./opencode-snapshot.cjs').isCompleted(last)
+    || last.info.parentID !== binding.effectiveRequest.info.id) {
+    if (cycle.dispatch?.responseId || cycle.status === 'callback_pending') throw Error('Pinned review response cannot be verified; pause for recovery.');
+    return cycle;
+  }
+  if (cycle.dispatch.responseId && cycle.dispatch.responseId !== last.info.id) throw Error('Pinned review response changed; do not adopt another response.');
+  if (cycle.lastReviewedAssistantMessageId === last.info.id) return cycle;
+  return { ...cycle, status: cycle.status === 'reviewing' ? 'reviewing' : 'callback_pending',
+    dispatch: { ...cycle.dispatch, responseId: last.info.id }, requestBinding: bindingRecord(cycle, binding) };
+}
+
 module.exports = { ACTIVE, readJson, saveJson, acquireLock, normalizeDirectory,
-  fingerprint, marker, textOf, hash, resolveRequest, resolveBinding, bindingRecord };
+  fingerprint, marker, textOf, hash, resolveRequest, resolveBinding, bindingRecord, completedCycle };

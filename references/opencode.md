@@ -83,7 +83,15 @@ unrelated later executor messages. Completion requires normal assistant stop,
 completion time and no pending tools, questions or permissions. For compaction,
 use the original-ID verification below; its summary alone is not completion.
 
-After a verified Wait result or callback, save `reviewing`, independently check changed code and relevant regressions, then
+Before publishing a verified completion, the listener atomically saves
+`dispatch.responseId` and `status: callback_pending` under the dispatch lock.
+This identifies the response awaiting review, not proof of callback delivery;
+the existing delivery ledger records that separately. If the response ID is
+absent (older state, interrupted write or manual Wait), use Reconcile to pin it
+from verified history before review. Never select an arbitrary latest reply.
+
+After a verified Wait result or callback, preserve the pinned ID and save
+`reviewing`, independently check changed code and relevant regressions, then
 record `lastReviewedAssistantMessageId` and `latestReviewReport`. Send only concrete
 remaining defects within authorized scope and rounds. Persist and verify `complete`
 or descriptive `paused_*`, check listener `Status`, and report results or the blocker.
@@ -104,6 +112,11 @@ compaction requests, successful compaction-summary parent links, and text parts
 marked `synthetic: true` plus `metadata.compaction_continue: true`. Text alone is
 not proof. `requestBinding` records original/effective IDs and the verified chain;
 `submittedMessageId`, owner and round stay bound to the original dispatch.
+Reconcile also restores a missing response pin when completion is proven. It
+preserves `reviewing`, rejects a changed pinned response and does not restart the
+listener during an existing review. A repair Send requires the pinned response
+to have been reviewed; its new dispatch replaces the old response pin. See
+[compact-recovery.md](compact-recovery.md) for owner-context and crash recovery.
 Send binding, Reconcile and callbacks share this verifier. An unfinished summary
 never counts as task completion; stranded compaction still reaches the watchdog.
 If evidence is ambiguous, inspect Read/Snapshot

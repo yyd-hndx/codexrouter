@@ -1,4 +1,4 @@
-const { ACTIVE, fingerprint, resolveBinding, bindingRecord } = require('./opencode-state.cjs');
+const { ACTIVE, fingerprint, resolveBinding, bindingRecord, completedCycle } = require('./opencode-state.cjs');
 
 function createReconciler(deps) {
   let ledger = deps.readLedger();
@@ -15,13 +15,13 @@ function createReconciler(deps) {
     }
   }
   return async function reconcile() {
-    const cycle = deps.readCycle();
+    let cycle = deps.readCycle();
     if (!ACTIVE.includes(cycle.status)) return;
     if (!cycle.codexThreadId || !cycle.sessionId || !cycle.directory) {
       deps.log('invalid_cycle', { detail: 'Missing owner/session/directory; inspect review-cycle.json.' });
       return;
     }
-    let notice;
+    let notice, completionMessages;
     try {
       const [messages, permissions, questions, statuses] = await Promise.all([
         deps.api('/session/' + cycle.sessionId + '/message', cycle), deps.api('/permission', cycle),
@@ -35,6 +35,7 @@ function createReconciler(deps) {
       ledger.monitor = observed.monitor;
       delete ledger.availability;
       notice = deps.noticeFor(cycle, snapshot) || observed.notice;
+      if (notice?.reason === 'completed') completionMessages = messages;
       if (notice && binding && cycle.dispatch?.id) {
         notice.dispatchId = cycle.dispatch.id;
         notice.verifiedRequestId = binding.request.info.id;
@@ -51,6 +52,17 @@ function createReconciler(deps) {
     const legacyKey = notice.key;
     notice.key = [cycle.codexThreadId, cycle.directory, cycle.dispatch?.id || '', legacyKey].join(':');
     if (fingerprint(deps.readCycle()) !== fingerprint(cycle)) return;
+    if (completionMessages && cycle.dispatch?.id) {
+      const pinned = completedCycle(cycle, completionMessages);
+      if (fingerprint(pinned) !== fingerprint(cycle)) {
+        const release = deps.lockCycle();
+        try {
+          if (fingerprint(deps.readCycle()) !== fingerprint(cycle)) return;
+          deps.saveCycle(pinned); // The owner can wake immediately after submission.
+          cycle = pinned;
+        } finally { release(); }
+      }
+    }
     const mode=cycle.deliveryMode||'async';
     if (mode === 'direct') {
       ledger.lastNotice={...notice,codexThreadId:cycle.codexThreadId,status:'available',autoSubmitted:false,observedAt:new Date().toISOString()};
@@ -73,7 +85,7 @@ function createReconciler(deps) {
         : 'Inspect the actual response and continue the authorized review.';
     const continuation = notice.requestBinding?.compactions.length
       ? ` Verified automatic compaction chain from original dispatch request ${notice.verifiedRequestId}; current continuation ${notice.userMessageId}. Keep the original submittedMessageId; use Reconcile to persist the verified chain if needed.` : '';
-    const message = `OPENCODE_EVENT ${notice.reason}. Event ${notice.key}. Session ${notice.sessionId}; request ${notice.userMessageId || 'unbound'}; response ${notice.assistantMessageId || 'unavailable'}.${continuation} Read ${deps.workflowPath} and ${deps.statePath}. This is a new review work item in this conversation; preserve any other active user task and handle this callback at a safe step. ${guidance} Honor the latest user instructions, owner, request IDs and round limit. This notification authorizes no new scope.`;
+    const message = `OPENCODE_EVENT ${notice.reason}. Event ${notice.key}. Session ${notice.sessionId}; request ${notice.userMessageId || 'unbound'}; response ${notice.assistantMessageId || 'unavailable'}; round ${cycle.round}.${continuation} Read ${deps.workflowPath} and ${deps.statePath}. This is a new review work item in this conversation; preserve any other active user task and handle this callback at a safe step. ${guidance} If owner context compacts, resume the pinned response from this cycle. Without newer human input, finish this callback review and report its result, not an older already-answered topic. Honor the latest user instructions, owner, request IDs and round limit. This notification authorizes no new scope.`;
     ledger.pending = notice;
     await persist(); // If this fails, no external queue call takes place.
     if (fingerprint(deps.readCycle()) !== fingerprint(cycle)) {

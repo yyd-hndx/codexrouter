@@ -11,6 +11,19 @@
   avoiding a libuv assertion that aborted the first GitHub Actions run.
 - Add an isolated short-path watcher regression test on Windows volumes with 8.3 aliases.
 
+## 0.2.1 - pinned review recovery
+
+- Include the installed skill's DeepSeek Windows preflight, sandbox/transport
+  troubleshooting and optional DNS preload with portable runtime resolution.
+- Keep cumulative dispatch limits when recovering from a settled provider error.
+
+- Save the verified OpenCode response ID and `callback_pending` state before callback submission, using the existing cycle and delivery ledger.
+- Reconcile missing response pins without another model prompt; preserve ongoing reviews and reject changed targets. Keep ambiguous receipt replay blocked.
+- Resume the unfinished callback review after owner-context compaction and preserve actual newer user instructions.
+- Add an optional read-only SessionStart/compact hook, filtering by the event's owner ID with installation-relative state discovery. Generate portable host configuration without installing or trusting it automatically.
+- Reuse native response/review fields; add no pending-work file or global task manager.
+- Cover state-write failure, restart boundaries, dynamic ownership and relocated hook execution. Preserve previous permission, cleanup, routing and compaction-chain checks.
+
 ## 0.2.0 - asynchronous owner callbacks
 
 - Default to spec, confirmed dispatch, conversation release and independent callback review.
