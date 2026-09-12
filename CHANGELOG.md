@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove bundled tests, mock executors and the test runner. CI retains dependency,
+  environment and release-file checks; production runtime behavior is unchanged.
+
 - Rename the repository and skill to `codexrouter` and simplify the README.
 
 - Expand Windows short directory names before opening native and legacy file watchers,

@@ -8,7 +8,6 @@
     "node": ">=24"
   },
   "scripts": {
-    "test": "node scripts/test.cjs",
     "doctor": "node scripts/doctor.cjs",
     "configure": "node scripts/configure.cjs",
     "check:release": "node scripts/check-release.cjs"

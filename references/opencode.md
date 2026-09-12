@@ -147,7 +147,6 @@ updates pause callbacks and await exit, replace scripts, restore state and Start
 they do not abort Grok, clear the ledger or restart its server.
 
 Local delivery needs this computer and Codex running; there is no reboot autostart
-or exactly-once guarantee across queue/crash uncertainty. Tests are the five
-`*.test.cjs` files in `legacy/tests/bridge`; run all tests with `npm test` from repository root.
+or exactly-once guarantee across queue/crash uncertainty.
 
 Initialize owned legacy state with `node scripts/init-opencode.cjs --directory <project> --session <verified-empty-session> --owner <thread-id> --provider <provider-id> --model <model-id> --task <task-file> --scope <authorized-scope>`. This command does not create a remote session or send a prompt. It refuses to replace any existing state; archive an inactive cycle after inspection.

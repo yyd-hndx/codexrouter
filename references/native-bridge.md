@@ -163,10 +163,6 @@ DeepSeek uses `--profile acp --patch <patch.yml>`; the patch selects the provide
 and loads the bundled `deepseek-events.mjs` observer. The observer reports original
 native events and IDs; it does not rewrite prompts or model output.
 
-Run all bundled tests with `npm test`, including permission replay, raw observer
-events, compaction failures, delayed command acknowledgement and cleanup failures.
-They use mock ACP processes and queue acknowledgement, without network/model fees.
-
 Sources: [Grok Build](https://docs.x.ai/build/overview),
 [Grok settings](https://docs.x.ai/build/settings/reference),
 [Grok source](https://github.com/xai-org/grok-build),

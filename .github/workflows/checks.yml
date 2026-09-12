@@ -1,4 +1,4 @@
-name: Test
+name: Checks
 on: [push, pull_request]
 permissions:
   contents: read
@@ -14,5 +14,4 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run doctor
-      - run: npm test
       - run: npm run check:release

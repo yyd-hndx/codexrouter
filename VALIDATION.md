@@ -1,5 +1,10 @@
 # Release validation - 0.2.0
 
+The test suite and its fixtures were removed after the
+[127-test CI run passed](https://github.com/yyd-hndx/codexrouter/actions/runs/34693251699).
+The records below describe historical validation. Current CI checks installation,
+development prerequisites and release files; it no longer runs regression tests.
+
 ## Windows CI watcher correction - 2026-09-12
 
 The first [GitHub Actions run](https://github.com/yyd-hndx/opencode-review/actions/runs/34692504358)
