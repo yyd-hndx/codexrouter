@@ -1,4 +1,4 @@
 interface:
-  display_name: "OpenCode Review"
+  display_name: "codexrouter"
   short_description: "Delegate to three executors and independently review results"
-  default_prompt: "Use $opencode-review to coordinate the authorized task with my selected executor and independently verify its result."
+  default_prompt: "Use $codexrouter to coordinate the authorized task with my selected executor and independently verify its result."

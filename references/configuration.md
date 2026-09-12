@@ -21,6 +21,20 @@ $owner = $env:CODEX_THREAD_ID
 
 The owner must be the actual Codex task. Outside Codex, do not invent a task ID and assume queue/heartbeat integration works. Use this skill inside the intended task for the complete review flow.
 
+## Grok Build installation
+
+Run from the skill directory:
+
+```powershell
+npm install --prefix .runtime/grok @xai-official/grok@1.0.25
+npm run configure -- --backend grok-build --runtime .runtime/grok/node_modules/@xai-official/grok/bin/grok --model grok-4.6 --effort xhigh
+npm run doctor -- --config config.local.json
+```
+
+Set `XAI_API_KEY` in the environment used to launch Codex before running doctor.
+Use a model available to your account. The generated configuration uses the
+official API; custom services can use `--base-url` and `--key-env`.
+
 ## OpenCode on Windows
 
 Install/configure OpenCode using its own provider settings. Resolve its executable from PATH (`opencode.exe`) or set `OPENCODE_REVIEW_CLI` to an executable path. If your installation only has a `.cmd` wrapper, point to its actual Windows executable. Set optional `OPENCODE_REVIEW_URL` to a loopback HTTP origin such as `http://127.0.0.1:4097`; keep it identical for bridge and listener commands.

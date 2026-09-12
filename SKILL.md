@@ -1,9 +1,9 @@
 ---
-name: opencode-review
+name: codexrouter
 description: Delegate authorized implementation asynchronously to OpenCode, official Grok Build, or DeepSeek Harness using a detailed spec, then independently review completion callbacks. Also inspect, stop, or reconcile runs. Review-only requests do not authorize dispatch.
 ---
 
-# OpenCode Review
+# codexrouter
 
 Codex scopes, reviews and independently verifies; the selected executor implements.
 Match the user's language and keep updates brief.

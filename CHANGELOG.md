@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Rename the repository and skill to `codexrouter` and simplify the README.
+
 - Expand Windows short directory names before opening native and legacy file watchers,
   avoiding a libuv assertion that aborted the first GitHub Actions run.
 - Add an isolated short-path watcher regression test on Windows volumes with 8.3 aliases.
