@@ -1,0 +1,19 @@
+{
+  "name": "opencode-review-skill",
+  "version": "0.2.0",
+  "private": true,
+  "description": "Codex review bridge for OpenCode, Grok Build and DeepSeek Harness",
+  "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node scripts/test.cjs",
+    "doctor": "node scripts/doctor.cjs",
+    "configure": "node scripts/configure.cjs",
+    "check:release": "node scripts/check-release.cjs"
+  },
+  "dependencies": {
+    "eventsource-parser": "3.1.1"
+  }
+}

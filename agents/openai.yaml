@@ -1,0 +1,4 @@
+interface:
+  display_name: "OpenCode Review"
+  short_description: "Delegate to three executors and independently review results"
+  default_prompt: "Use $opencode-review to coordinate the authorized task with my selected executor and independently verify its result."
