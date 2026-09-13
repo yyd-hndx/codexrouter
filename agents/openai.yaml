@@ -1,4 +1,4 @@
 interface:
-  display_name: "codexrouter"
+  display_name: "codexRouter"
   short_description: "Delegate to three executors and independently review results"
-  default_prompt: "Use $codexrouter to coordinate the authorized task with my selected executor and independently verify its result."
+  default_prompt: "Use $codexRouter to coordinate the authorized task with my selected executor and independently verify its result."

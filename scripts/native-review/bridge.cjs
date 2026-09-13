@@ -6,7 +6,7 @@ const { now, read, save, lock, hash, assertOwner, assertSend, grokResult, deepse
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function argsOf(argv) { const out = { action: argv[0] }; for (let i=1;i<argv.length;i+=2) { if (!argv[i].startsWith('--') || argv[i+1] === undefined) throw Error('Arguments require --name value'); out[argv[i].slice(2)] = argv[i+1]; } return out; }
 function settings(file) { const config = read(file); if (config.version !== 1) throw Error('Unsupported bridge config'); return config; }
-function runtimeSpec(config, state) {
+function runtimeSpec(config, state, cycle) {
   const spec = config.backends[state.backend]; if (!spec) throw Error('Backend is not configured');
   const env = { ...process.env, ...spec.env };
   if (spec.credential) {
@@ -15,7 +15,15 @@ function runtimeSpec(config, state) {
     if (typeof value !== 'string' || !value) throw Error('Configured credential unavailable');
     for (const key of spec.credential.envNames) env[key] = value;
   }
-  return { command: spec.command, args: spec.args, env, cwd: state.directory };
+  let args = spec.args;
+  if (state.backend === 'deepseek-harness' && spec.managedDeepseek) {
+    if (!cycle || !path.isAbsolute(cycle)) throw Error('Managed DeepSeek launch requires an absolute cycle directory');
+    const patchFile = path.join(cycle, 'deepseek-acp.patch.yml');
+    const launch = require('./deepseek-runtime.cjs').deepseekLaunch(spec, patchFile);
+    fs.writeFileSync(patchFile, launch.patch);
+    args = launch.args; Object.assign(env, launch.env);
+  }
+  return { command: spec.command, args, env, cwd: state.directory };
 }
 async function notify(config, state, stateFile, event=state.status) {
   const mode=state.notify||'async';
@@ -23,7 +31,7 @@ async function notify(config, state, stateFile, event=state.status) {
   const key = `${state.id}:${state.dispatch.id}:${event}`;
   if (state.delivery?.key === key || ['pending','uncertain'].includes(state.delivery?.status)) return;
   state.delivery = { key, status: 'pending', createdAt: now() }; save(stateFile,state);
-  const text = `NATIVE_REVIEW_EVENT ${event}. Backend ${state.backend}; cycle ${state.id}; dispatch ${state.dispatch.id}; request ${state.submittedMessageId || 'unbound'}; response ${state.responseId || 'unavailable'}; round ${state.round}. Read ${stateFile} and the codexrouter skill. This is a new review work item in this conversation; preserve any other active user task and handle this callback at a safe step. If owner context compacts, resume this cycle's pinned response. Without newer human input, finish this callback review and report its result, not an older already-answered topic. Verify current owner, latest user instructions, actual artifacts and report before reviewing or dispatching repairs. No new scope is authorized. If stopped or complete, do not restart.`;
+  const text = `NATIVE_REVIEW_EVENT ${event}. Backend ${state.backend}; cycle ${state.id}; dispatch ${state.dispatch.id}; request ${state.submittedMessageId || 'unbound'}; response ${state.responseId || 'unavailable'}; round ${state.round}. Read ${stateFile} and the codexRouter skill. This is a new review work item in this conversation; preserve any other active user task and handle this callback at a safe step. If owner context compacts, resume this cycle's pinned response. Without newer human input, finish this callback review and report its result, not an older already-answered topic. Verify current owner, latest user instructions, actual artifacts and report before reviewing or dispatching repairs. No new scope is authorized. If stopped or complete, do not restart.`;
   try {
     if(mode==='async') {
       const result=await require('../owner-notify.cjs').submitOwnerMessage(state.owner,text,key);
@@ -55,6 +63,15 @@ async function worker(cycle) {
       state.responseId=verdict.responseId||null;state.responseEventId=run.responseEventId||null; state.stopReason=verdict.reason; state.result=result;
       if(verdict.ready && state.problemCode==='stalled') {state.problem=null;state.problemCode=null;}
     }
+    if(state.backend==='deepseek-harness') {
+      state.progress=progress(run,state);
+      const code=run.nativeEnd?.reason?.error?.code;
+      if(code && /^[A-Z][A-Z0-9_]{0,63}$/.test(code)) {
+        state.failure={code,retryCount:run.retryCount||0,sessionId:state.sessionId,requestId:run.nativeRequestId||null};
+        state.problemCode=['TRANSPORT','TIMEOUT'].includes(code)?'model_transport':'model_error';
+        state.problem=`DeepSeek request ended with ${code}; inspect the preserved session and network before further execution.`;
+      }
+    }
     state.finishedAt=now();state.lastResponseFile=path.join(cycle,`response-${state.round}.txt`);
     fs.writeFileSync(state.lastResponseFile,run.text);state.dispatch.finishedAt=state.finishedAt;persist();
     active=null;await wake();
@@ -77,7 +94,7 @@ async function worker(cycle) {
       if(!command.prompt||!command.prompt.trim())throw Error('Empty prompt');
       const dispatchId=crypto.randomUUID();
       state.dispatch={id:dispatchId,promptHash:hash(command.prompt),startedAt:now(),rpcId:dispatchId};
-      state.round++;state.status='dispatching';state.submittedMessageId=null;state.responseId=null;state.responseEventId=null;state.result=null;state.problem=null;state.problemCode=null;state.progress=null;state.finishedAt=null;state.stopReason=null;state.lastResponseFile=null;
+      state.round++;state.status='dispatching';state.submittedMessageId=null;state.responseId=null;state.responseEventId=null;state.result=null;state.problem=null;state.problemCode=null;state.progress=null;state.failure=null;state.finishedAt=null;state.stopReason=null;state.lastResponseFile=null;
       const promptFile=path.join(cycle,`prompt-${state.round}.txt`);fs.writeFileSync(promptFile,command.prompt);state.currentPromptFile=promptFile;
       active={id:dispatchId,text:'',promptHash:hash(command.prompt),tools:new Map(),promptIds:new Set(),started:Date.now(),lastProgress:Date.now(),finished:false};persist();
       journal({direction:'out',id:dispatchId,method:'session/prompt',params:{sessionId:state.sessionId,prompt:[{type:'text',text:command.prompt}]}});
@@ -114,7 +131,7 @@ async function worker(cycle) {
   }
   try {
     state.workerPid=process.pid;state.status='starting';persist();
-    const spec=runtimeSpec(config,state);rpc=new Rpc(spec.command,spec.args,{env:spec.env,cwd:spec.cwd});state.runtimePid=rpc.child.pid;persist();
+    const spec=runtimeSpec(config,state,cycle);rpc=new Rpc(spec.command,spec.args,{env:spec.env,cwd:spec.cwd});state.runtimePid=rpc.child.pid;persist();
     rpc.on('diagnostic',data=>fs.appendFileSync(path.join(cycle,'runtime.stderr.log'),data));
     rpc.on('frame',journal);
     rpc.on('invalid',()=>{if(active)active.protocolError=true});
@@ -138,7 +155,7 @@ async function worker(cycle) {
       if(!active||message.params?.sessionId!==state.sessionId)return;
       observe(active,message,state);
       if(state.problemCode==='stalled') {state.problem=null;state.problemCode=null;active.stallNotified=false;persist();}
-      if(message.params?.event?.type?.startsWith('compaction/')) {state.progress=progress(active,state);persist();}
+      if(/^(compaction\/|llm\/retry|step\/start)/.test(message.params?.event?.type||'')) {state.progress=progress(active,state);persist();}
       if(active.nativeRequestId&&state.submittedMessageId!==active.nativeRequestId){state.submittedMessageId=active.nativeRequestId;persist();}
     });
     await rpc.request('initialize',{protocolVersion:1,clientCapabilities:{},clientInfo:{name:'codex-review-bridge',version:'1'}});
@@ -200,7 +217,7 @@ async function main(options) {
       const current=path.join(parent,'current.json');if(fs.existsSync(current)){const prior=read(read(current).stateFile);if(!['complete','paused_stopped','paused_round_limit','paused_timeout','paused_error','paused_reconcile'].includes(prior.status)||fs.existsSync(path.join(path.dirname(read(current).stateFile),'worker.lock')))throw Error('Previous native review cycle is still active');
         if(prior.runtimePid&&!prior.runtimeExited)throw Error('Previous runtime exit is unverified; inspect and reconcile before starting another cycle');}
       const id=crypto.randomUUID();cycle=path.join(parent,id);for(const folder of ['commands','replies'])fs.mkdirSync(path.join(cycle,folder),{recursive:true});
-      const maxRounds=Number(options['max-rounds']||3),maxRuntimeSeconds=Number(options['max-runtime']||1200),stallSeconds=Number(options['stall-seconds']||300);
+      const maxRounds=Number(options['max-rounds']||4),maxRuntimeSeconds=Number(options['max-runtime']||1200),stallSeconds=Number(options['stall-seconds']||300);
       const compactionStallSeconds=Number(options['compaction-stall-seconds']||Math.max(600,stallSeconds));
       if(!Number.isInteger(maxRounds)||maxRounds<1||!Number.isFinite(maxRuntimeSeconds)||maxRuntimeSeconds<1||!Number.isFinite(stallSeconds)||stallSeconds<1)throw Error('Invalid bounds');
       if(!Number.isFinite(compactionStallSeconds)||compactionStallSeconds<stallSeconds)throw Error('Compaction stall bound must be at least the normal stall bound');

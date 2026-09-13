@@ -72,8 +72,13 @@ versions can differ; unsupported hosts retain the manual recovery steps above.
 
 `scripts/resume-review.cjs` reads JSON from stdin and returns either `{}` or
 `hookSpecificOutput` containing `hookEventName: SessionStart` and short
-`additionalContext`. It reads the package-relative OpenCode cycle and existing
-native project pointers under the event's `cwd` or ancestors. It compares the
+`additionalContext`. It reads the package-relative OpenCode cycle, workspace `work/opencode-bridge`
+and `.agent-work/opencode-bridge` cycles, and existing native project pointers
+under the event's `cwd` or ancestors. Native pointers are checked using real paths
+to reject symlink escapes. Shared OpenCode locations can be configured with
+`CODEX_ROUTER_OPENCODE_CYCLE` or an `openCodeCycleFiles` array in the private
+`$CODEX_HOME/codexRouter/resume-review.json` (override with
+`CODEX_ROUTER_RESUME_CONFIG`). It compares the
 event's `session_id` with the recorded owner every time. No conversation ID is
 hardcoded, and no global owner registry is created.
 

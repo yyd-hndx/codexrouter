@@ -1,5 +1,45 @@
 # Release validation
 
+## 0.3.0 - 2026-09-13
+
+Compared the supplied 0.2.1 archive, installed skill changes and GitHub main at
+`8d11f66`. Retained the repository's portable configuration, permission/receipt
+checks, Windows watcher fixes and checks-only CI. Tests stay outside the shipped
+package, matching the existing repository layout.
+
+Validation used Windows, Node.js 24.19.0, PowerShell 7 and the installed official
+DeepSeek Harness 0.1.5-rc.1:
+
+- The archive's 140 regression checks passed in an isolated copy of the updated
+  runtime. After merging the installed callback/discovery changes, all 31 focused
+  callback, recovery, configuration and detached-worker checks passed; the old
+  missing-config assertion was adapted to the new sanitized error wording.
+- Eight additional checks passed: DNS source failure/timeout, address ordering,
+  exact-origin isolation, real socket fallback, relocated managed startup,
+  same-request retry tracking and error-body filtering.
+- Real Harness against a local synthetic HTTP/SSE server recovered from a connect
+  reset followed by a mid-stream reset: 3 model requests, 2 retries, 1 dispatch,
+  unchanged native session, verified final OK. Continuous failure stopped after
+  5 retries (6 requests), without a completed response. Cancellation during
+  backoff stopped the runtime and produced no subsequent request.
+- A real official `deepseek-official/deepseek-flash` request at `max` effort
+  completed with OK using opt-in auto DNS, with no retry. A preceding system-DNS
+  run exhausted retries; subsequent unauthenticated system connectivity succeeded.
+  VPN/network conditions changed during the task, so these observations do not
+  isolate VPN, DNS or TLS as the sole cause and do not promise future uptime.
+- Current Codex callback tool availability was probed without sending a message.
+  Actual delivery semantics were tested with mocks, not a new live notification.
+- All 23 JavaScript and 3 PowerShell scripts passed syntax checks. Metadata,
+  relative documentation links, local doctor and release-file scan passed.
+  The user explicitly requested `codexRouter`; the generic skill validator's
+  lowercase-only naming check therefore remains an intentional exception.
+
+Default installations keep system networking. `--dns-mode auto` is an opt-in
+address selection aid for a demonstrated failure; it does not retry whole tasks,
+change TLS validation or select another provider. Generated local configs still
+need regeneration when runtime/home locations change on another machine. macOS,
+Linux, arbitrary Harness versions and third-party providers are not certified.
+
 ## 0.2.1 source update
 
 Updated from the supplied `opencode-review-v0.2.1.zip`. The repository retains

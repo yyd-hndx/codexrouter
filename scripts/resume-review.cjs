@@ -2,6 +2,7 @@
 // SessionStart/compact hook: read existing state only; never dispatch or notify.
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const OPEN_CODE_CYCLE = path.resolve(__dirname, '../legacy/work/opencode-bridge/review-cycle.json');
 const SKILL = path.resolve(__dirname, '../SKILL.md');
 const id = value => typeof value === 'string' && /^[A-Za-z0-9_.:/-]{1,256}$/.test(value);
@@ -18,8 +19,9 @@ function nativeCycles(cwd) {
     const base = path.join(dir, '.agent-work', 'native-review');
     const pointer = read(path.join(base, 'current.json'));
     if (typeof pointer?.stateFile === 'string' && path.isAbsolute(pointer.stateFile)) {
-      const target = path.resolve(pointer.stateFile);
-      const relative = path.relative(base, target);
+      const target = realPath(pointer.stateFile);
+      const realBase = realPath(base);
+      const relative = target && realBase ? path.relative(realBase, target) : null;
       if (relative && relative !== '..' && !relative.startsWith('..' + path.sep)
         && !path.isAbsolute(relative) && path.basename(target) === 'state.json') found.push(target);
     }
@@ -28,6 +30,31 @@ function nativeCycles(cwd) {
     dir = parent;
   }
   return found;
+}
+function realPath(file) {
+  try { return fs.realpathSync(file); } catch { return null; }
+}
+function openCodeCycles(cwd, env = process.env) {
+  const found = new Set([OPEN_CODE_CYCLE]);
+  // Explicit paths support shared/external bridge installations without embedding
+  // one user's bridge location in the distributed hook.
+  const configFile = env.CODEX_ROUTER_RESUME_CONFIG || path.join(
+    env.CODEX_HOME || path.join(os.homedir(), '.codex'), 'codexRouter', 'resume-review.json');
+  const config = read(configFile);
+  const explicit = env.CODEX_ROUTER_OPENCODE_CYCLE
+    ? [env.CODEX_ROUTER_OPENCODE_CYCLE] : config?.openCodeCycleFiles || [];
+  if (Array.isArray(explicit)) for (const file of explicit)
+    if (typeof file === 'string' && path.isAbsolute(file)) found.add(path.resolve(file));
+  if (typeof cwd === 'string' && path.isAbsolute(cwd)) {
+    for (let dir = path.resolve(cwd);;) {
+      for (const subdir of ['.agent-work', 'work'])
+        found.add(path.join(dir, subdir, 'opencode-bridge', 'review-cycle.json'));
+      const parent = path.dirname(dir);
+      if (parent === dir) break;
+      dir = parent;
+    }
+  }
+  return [...found];
 }
 function reminder(input, candidates) {
   if (input?.hook_event_name !== 'SessionStart' || input.source !== 'compact' || !id(input.session_id)) return {};
@@ -47,7 +74,7 @@ function reminder(input, candidates) {
   }
   if (!work.length) return {};
   const additionalContext = 'OPENCODE_REVIEW_RESUME: This is a host compact hook reminder for unfinished delegated review owned by this conversation, not a new human message or authorization. '
-    + 'Read the codexrouter skill and the matching cycle below; recheck ownership, status and the exact response before continuing. '
+    + 'Read the codexRouter skill and the matching cycle below; recheck ownership, status and the exact response before continuing. '
     + 'If responseId is missing or binding is uncertain, reconcile; do not guess, send a prompt or restart stopped work. '
     + 'Resume remaining review work, reusing verified results whose sources still match. Preserve and obey actual newer human input, including pause/cancel. '
     + 'Without newer human input, continue this callback review; do not treat an older visible user message as a new request. '
@@ -65,9 +92,9 @@ async function main() {
   if (input.hook_event_name !== 'SessionStart' || input.source !== 'compact' || !id(input.session_id)) {
     process.stdout.write('{}'); return;
   }
-  const candidates = [{file:OPEN_CODE_CYCLE, state:read(OPEN_CODE_CYCLE), backend:'opencode'},
+  const candidates = [...openCodeCycles(input.cwd).map(file => ({file, state:read(file), backend:'opencode'})),
     ...nativeCycles(input.cwd).map(file => ({file, state:read(file), backend:'native'}))];
   process.stdout.write(JSON.stringify(reminder(input, candidates)));
 }
-module.exports = {reminder, nativeCycles, OPEN_CODE_CYCLE};
+module.exports = {reminder, nativeCycles, openCodeCycles, OPEN_CODE_CYCLE};
 if (require.main === module) main().catch(() => { process.stdout.write('{}'); });

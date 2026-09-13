@@ -8,7 +8,11 @@ Use `node scripts/configure.cjs --backend <backend> --runtime <entry.js> --model
 
 Grok accepts `--idle-timeout-seconds` (1–86400, default 300). This upstream inference-stream idle timeout is independent of the bridge's no-progress warning and total runtime limit. Configure it for models that remain silent while reasoning; a larger bridge runtime does not override a shorter upstream idle timeout.
 
-For DeepSeek, the generated observer patch uses the current repository's observer absolute path. Its actual runtime must advertise the configured provider/model pair; initialization checks this and the selected effort rather than silently switching models. The example names reflect the source installation and are not promises about other runtime versions or account access. Doctor checks generated config, file presence and required environment variables; it cannot prove API connectivity or model access. A credential-store-only setup can be valid upstream even if the generated doctor check requires an environment variable; edit that metadata intentionally for such a setup.
+For DeepSeek, generated configs record a managed runtime entry and DNS mode. The
+bridge creates its observer patch inside the owned cycle using the current
+installation path on every startup; renaming the skill cannot leave a stale
+observer/preload path. Runtime and home paths remain local configuration and must
+be regenerated on a different machine. Hand-written configs remain unchanged. Its actual runtime must advertise the configured provider/model pair; initialization checks this and the selected effort rather than silently switching models. The example names reflect the source installation and are not promises about other runtime versions or account access. Doctor checks generated config, file presence and required environment variables; it cannot prove API connectivity or model access. A credential-store-only setup can be valid upstream even if the generated doctor check requires an environment variable; edit that metadata intentionally for such a setup.
 
 Native command variables:
 
@@ -70,3 +74,21 @@ available for foreground waiting or a verified heartbeat fallback; `events`
 retains the legacy inbox queue behavior. Initialization itself sends no callback.
 
 `init-opencode` records `sessionTitle` from optional `--title`, falling back to the authorized scope as a display label. It does not claim to fetch the actual remote title. `Send` requires an explicit nonempty `-Variant`; Snapshot and Reconcile do not select an effort.
+
+## DeepSeek connection handling
+
+`configure --dns-mode system` is the default and leaves system/VPN/proxy routing
+untouched. Opt into `--dns-mode auto` only for a demonstrated DNS/address failure:
+new connections try system addresses first plus deduplicated fresh A records.
+Each DNS source has a 2-second bound; one failed source cannot discard a working
+source. `fresh` is available for explicit diagnosis, but can be worse after a VPN
+change. Only the exact official HTTPS origin is affected; TLS stays verified.
+The preload resolves undici from the chosen Harness installation.
+
+Harness 0.1.5-rc.1 owns same-step model request retries (default normal policy,
+5 retries for transient errors). The bridge now records retry counts/backoff and
+terminal codes in cycle state. It never resubmits the task to implement retries.
+Settings can override the upstream policy, so inspect it if retries differ; avoid
+unbounded always mode. Authentication errors are not network retries.
+After a terminal failure, preserve the session/report and inspect known effects;
+do not restart a cancelled task or blindly replay a failed dispatch.

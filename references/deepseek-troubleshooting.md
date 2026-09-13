@@ -101,12 +101,13 @@ config affects future processes, not an already-running worker.
 
 The repository includes `scripts/native-review/deepseek-network.cjs` and
 `deepseek-dns.cjs`. The preload resolves `undici` from the selected installed
-DeepSeek runtime. It changes only connections to `https://api.deepseek.com`;
+DeepSeek runtime and retains usable system addresses instead of replacing them. It changes only connections to `https://api.deepseek.com`;
 other origins retain their original dispatcher. No dependency or private config
 from the author's installation is bundled.
 
-After diagnosing the same stale-address failure and obtaining any required
-authorization, back up the local bridge configuration. In that configuration's
+After diagnosing an address-path failure, back up the local bridge configuration.
+For a new generated config, prefer `configure --dns-mode auto`. For an existing
+manual config, use the following opt-in preload. In that configuration's
 DeepSeek backend `args`, insert `--require` and the absolute path of
 `scripts/native-review/deepseek-network.cjs` immediately before the runtime
 entrypoint. Keep the entrypoint, profile, patch, provider, model and effort.
@@ -116,7 +117,12 @@ For example, the argument order is:
 --require <absolute-skill-path>/scripts/native-review/deepseek-network.cjs <absolute-dsh-entry> --profile acp --patch <existing-patch-path>
 ```
 
-This is optional and is not enabled by `configure`. Verify the exact failing
+This is optional; `configure` enables it only with explicit `--dns-mode auto` or
+`fresh`. The preload defaults to auto: system addresses first, then fresh A
+records, with a 2-second bound per lookup source. To force fresh resolution for
+diagnosis, set process-local `CODEX_ROUTER_DEEPSEEK_DNS=fresh`. VPN state can change
+both reachable addresses and routing; do not attribute success to DNS or TLS
+alone without a controlled comparison. Re-test system mode after a regression. Verify the exact failing
 request with a fresh, authorized runtime process; do not restart an active
 worker to install it. Restore the saved configuration to roll back. If the
 runtime cannot resolve `undici`, the preload fails rather than silently falling
@@ -143,3 +149,12 @@ An environment-repair request permits that repair; it does not silently add
 feature implementation rounds or change the selected executor. Keep active
 implementation work separate from a skill-documentation update, and never stop
 or reconfigure its live worker just to validate this skill.
+
+## Native retry evidence
+
+The observer exposes sanitized `llm/retry` and `llm/retry-started` events;
+`state.progress` records retry count, backoff and error code. These are model
+requests within the same native step/session and do not consume another task
+dispatch or repair round. A terminal model error retains the original session,
+request ID and partial output; it is never promoted to a completed response.
+The bridge does not add a second task retry loop around Harness.

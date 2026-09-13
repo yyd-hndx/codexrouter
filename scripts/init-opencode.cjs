@@ -9,7 +9,7 @@ try {
   if (process.env.CODEX_THREAD_ID && process.env.CODEX_THREAD_ID !== o.owner) throw Error('Owner differs from the current Codex task.');
   const directory = fs.realpathSync(o.directory);
   const task = fs.realpathSync(o.task);
-  const maxRounds = Number(o['max-rounds'] || 3);
+  const maxRounds = Number(o['max-rounds'] || 4);
   const deliveryMode = o['delivery-mode'] || 'async';
   if (!['async', 'direct', 'events'].includes(deliveryMode)) throw Error('Invalid delivery mode.');
   if (!Number.isInteger(maxRounds) || maxRounds < 1) throw Error('Invalid round limit.');

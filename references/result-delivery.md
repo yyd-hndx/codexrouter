@@ -12,13 +12,16 @@ It does not use `codex queue`, start another Codex session, simulate keyboard
 input, or run `codex exec resume`. The source remains an executor event even
 though the app delivers it as a new conversational input.
 
-Configure the installed MCP server with `CODEX_APP_TOOLS_MCP_SERVER` and its Node
-binary with `CODEX_MCP_NODE_PATH`, or use the fields in
-[`owner-notify.example.json`](../scripts/owner-notify.example.json) in a local
-`scripts/owner-notify.local.json`. `CODEX_OWNER_NOTIFY_CONFIG` selects another
-local config file. Environment values override file values; environment-only
-configuration works without a local file. These paths are machine-specific and
-may change after app updates. Do not package the real local configuration.
+The notifier discovers the newest installed `codex-app-tools` server under the
+current `CODEX_HOME` plugin cache and uses the inherited Node path or current Node.
+Explicit `CODEX_APP_TOOLS_MCP_SERVER` and `CODEX_MCP_NODE_PATH` overrides take
+priority. For a private file, use the fields in
+[`owner-notify.example.json`](../scripts/owner-notify.example.json) at
+`$CODEX_HOME/codexRouter/owner-notify.json`, or select a file with
+`CODEX_OWNER_NOTIFY_CONFIG`. Relative paths resolve beside that file.
+The older `scripts/owner-notify.local.json` is retained as a compatibility fallback.
+An explicit stale or malformed configuration fails rather than silently choosing
+another server. Real local configuration must remain untracked.
 The worker inherits `CODEX_APP_TOOLS_PIPE_PATH` from the owning Codex environment.
 This integration depends on an installed app-internal MCP server exposing the
 named tool; it is not a standalone public service bundled in this repository.

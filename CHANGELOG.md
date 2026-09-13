@@ -1,6 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 - routing and DeepSeek transport recovery
+
+- Use the requested `codexRouter` skill name and portable configured executor routes.
+- Proactive simple Grok work gets one repair; user delegation gets three repairs,
+  then Codex takes over remaining fixes. Initial implementation is separate.
+- Keep default system DNS; optional auto mode retains system addresses and adds
+  fresh answers with bounded lookup time, without replaying tasks or changing TLS.
+- Surface native same-step retry/backoff and terminal error codes in cycle state.
+- Discover the local callback runtime and support external/project review state
+  without author-specific paths; keep legacy local callback config compatible.
+- Resolve generated observer/preload paths from the installed skill per cycle,
+  so a rename or relocation does not retain the former observer path.
+
+## Previous repository maintenance
 
 - Remove bundled tests, mock executors and the test runner. CI retains dependency,
   environment and release-file checks; production runtime behavior is unchanged.

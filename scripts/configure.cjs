@@ -20,10 +20,11 @@ function configure(input) {
     spec.provider = input.provider;
     spec.modelSelector = JSON.stringify([input.provider, input.model]);
     auxiliary = path.join(directory, '.local', 'deepseek-acp.patch.yml');
-    contents = '- id: acp\n  config:\n    provider: ' + JSON.stringify(input.provider) + '\n    model: ' + JSON.stringify(input.model)
-      + '\n- insert:\n  - id: codex-review-events\n    name: ' + JSON.stringify(path.join(__dirname, 'native-review/deepseek-events.mjs').replace(/\\/g, '/')) + '\n';
-    spec.args = [runtime, '--profile', 'acp', '--patch', auxiliary];
-    spec.env = { DSH_HOME: home };
+    spec.managedDeepseek = { version: 1, runtime, dnsMode: input['dns-mode'] || 'system' };
+    const launch = require('./native-review/deepseek-runtime.cjs').deepseekLaunch(spec, auxiliary);
+    contents = launch.patch;
+    spec.args = launch.args;
+    spec.env = { DSH_HOME: home, ...launch.env };
     spec.requiredEnv = ['DEEPSEEK_API_KEY'];
   } else {
     const base = new URL(input['base-url'] || 'https://api.x.ai/v1');
@@ -52,7 +53,7 @@ function configure(input) {
   return { backend, config: output, home, note: 'Configuration only. No model request made; keys are read from the environment.' };
 }
 if (require.main === module) {
-  try { console.log(JSON.stringify(configure(options(process.argv.slice(2), ['backend', 'runtime', 'model', 'effort', 'provider', 'home', 'output', 'base-url', 'key-env', 'idle-timeout-seconds'])), null, 2)); }
+  try { console.log(JSON.stringify(configure(options(process.argv.slice(2), ['backend', 'runtime', 'model', 'effort', 'provider', 'home', 'output', 'base-url', 'key-env', 'idle-timeout-seconds', 'dns-mode'])), null, 2)); }
   catch (e) { console.error(e.message); process.exitCode = 1; }
 }
 module.exports = { configure };

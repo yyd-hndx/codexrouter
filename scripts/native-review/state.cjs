@@ -52,6 +52,16 @@ function observe(active, message, state) {
   if (message.method==='review.event') {
     const event=params.event,data=event.data;
     if(event.type==='protocol/error')active.protocolError=true;
+    if(event.type==='step/start') active.retry=null;
+    if(event.type==='llm/retry') {
+      if(data.turn!==active.currentTurn || !data.retryId || !Number.isInteger(data.retry) || data.retry<1
+        || !Number.isFinite(data.delayMs) || data.delayMs<0) active.protocolError=true;
+      else { active.retry={...data,phase:'backoff'};active.retryCount=(active.retryCount||0)+1; }
+    }
+    if(event.type==='llm/retry-started') {
+      if(!active.retry || data.turn!==active.currentTurn || data.retryId!==active.retry.retryId || data.retry!==active.retry.retry) active.protocolError=true;
+      else active.retry.phase='requesting';
+    }
     if(event.type==='compaction/start') {
       active.compactions ||= new Map();
       if(!data.compactionId || active.compactions.has(data.compactionId) || data.turn!==active.currentTurn) active.compactionBindingError=true;
@@ -87,8 +97,10 @@ function observe(active, message, state) {
 }
 function progress(active, state, timestamp=Date.now()) {
   const compacting=!!active.compactions?.size;
-  const allowance=(compacting ? (state.compactionStallSeconds ?? Math.max(600,state.stallSeconds)) : state.stallSeconds)*1000;
-  return {phase:compacting?'compacting':'running',compactionCount:active.compactionCount||0,
+  const allowance=Math.max((compacting ? (state.compactionStallSeconds ?? Math.max(600,state.stallSeconds)) : state.stallSeconds)*1000,
+    active.retry?.phase==='backoff' ? active.retry.delayMs+1000 : 0);
+  return {phase:compacting?'compacting':active.retry?.phase==='backoff'?'retry_backoff':'running',compactionCount:active.compactionCount||0,
+    retryCount:active.retryCount||0,retry:active.retry||null,
     compactionFailureCount:active.compactionFailureCount||0,
     lastProgressAt:new Date(active.lastProgress).toISOString(),stalled:timestamp-active.lastProgress>allowance};
 }

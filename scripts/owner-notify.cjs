@@ -1,17 +1,41 @@
 'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
+const os = require('node:os');
 const { Rpc } = require('./native-review/rpc.cjs');
 
-function localConfig() {
-  const file = process.env.CODEX_OWNER_NOTIFY_CONFIG || path.join(__dirname, 'owner-notify.local.json');
-  const config = fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '')) : {};
-  if (process.env.CODEX_OWNER_NOTIFY_CONFIG && !fs.existsSync(file)) throw Error('Explicit owner notification config is missing');
-  const command = process.env.CODEX_MCP_NODE_PATH || config.node;
-  const server = process.env.CODEX_APP_TOOLS_MCP_SERVER || config.server;
-  if (!command || !server || !fs.existsSync(command) || !fs.existsSync(server)) throw Error('Codex app tools runtime unavailable; configure CODEX_MCP_NODE_PATH and CODEX_APP_TOOLS_MCP_SERVER or owner-notify.local.json');
-  if (!process.env.CODEX_APP_TOOLS_PIPE_PATH) throw Error('Codex app tools pipe is unavailable in this process');
+function localConfig(env = process.env) {
+  const codexHome = path.resolve(env.CODEX_HOME || path.join(os.homedir(), '.codex'));
+  const privateFile = path.join(codexHome, 'codexRouter', 'owner-notify.json');
+  const legacyFile = path.join(__dirname, 'owner-notify.local.json');
+  const file = env.CODEX_OWNER_NOTIFY_CONFIG || (fs.existsSync(privateFile) ? privateFile : legacyFile);
+  let config = {};
+  if (env.CODEX_OWNER_NOTIFY_CONFIG || fs.existsSync(file)) {
+    try {
+      config = JSON.parse(fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, ''));
+      if (!config || typeof config !== 'object' || Array.isArray(config)) throw Error();
+      for (const key of ['node', 'server']) if (config[key] !== undefined &&
+        (typeof config[key] !== 'string' || !config[key].trim())) throw Error();
+    } catch { throw Error('Owner notification configuration is missing or invalid'); }
+  }
+  const resolveConfigPath = value => typeof value === 'string' && value
+    ? path.resolve(path.dirname(path.resolve(file)), value) : null;
+  const command = env.CODEX_MCP_NODE_PATH || resolveConfigPath(config.node) || process.execPath;
+  let server = env.CODEX_APP_TOOLS_MCP_SERVER || resolveConfigPath(config.server);
+  if (!server) {
+    // Only inspect the known app-tools plugin cache, never scan unrelated files.
+    const base = path.join(codexHome, 'plugins', 'cache', 'openai-bundled', 'codex-app-tools');
+    let versions = [];
+    try { versions = fs.readdirSync(base, {withFileTypes:true}).filter(entry => entry.isDirectory())
+      .map(entry => entry.name).sort((a, b) => b.localeCompare(a, undefined, {numeric:true})); } catch {}
+    server = versions.map(version => path.join(base, version, 'server.mjs')).find(isFile);
+  }
+  if (!isFile(command) || !isFile(server)) throw Error('Codex app tools runtime unavailable; configure CODEX_MCP_NODE_PATH and CODEX_APP_TOOLS_MCP_SERVER, or CODEX_OWNER_NOTIFY_CONFIG');
+  if (!env.CODEX_APP_TOOLS_PIPE_PATH) throw Error('Codex app tools pipe is unavailable in this process');
   return {command, server};
+}
+function isFile(file) {
+  try { return typeof file === 'string' && fs.statSync(file).isFile(); } catch { return false; }
 }
 
 async function withAppTools(fn, options = {}) {
@@ -48,7 +72,7 @@ async function submitOwnerMessage(threadId, message, eventId, options) {
   }, options);
 }
 
-module.exports = {probeOwnerChannel, submitOwnerMessage};
+module.exports = {probeOwnerChannel, submitOwnerMessage, localConfig};
 if (require.main === module) {
   const action = process.argv[2];
   const run = action === 'probe' ? probeOwnerChannel() : Promise.reject(Error('Use probe; delivery is called only by an owned review cycle'));

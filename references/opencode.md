@@ -31,7 +31,7 @@ the channel as described in [result-delivery.md](result-delivery.md).
 3. Archive a completed previous state in its project's `.agent-work/history`.
    Atomically initialize `status: ready_to_dispatch`, `codexThreadId`, `sessionId`,
    `sessionTitle`, `directory`, `codeDirectory`, `scope`, `sourceReport`,
-   `currentTaskFile`, `latestReviewReport`, `round: 0`, `maxRounds: 3` (or user bound),
+   `currentTaskFile`, `latestReviewReport`, `round: 0`, `maxRounds: 4` for user delegation or `2` for proactive simple work (or user bound),
    `model: {providerID: <configured-provider>, modelID: <configured-model>}`,
    `deliveryMode: async`, `submittedMessageId: null`,
    `lastReviewedAssistantMessageId: null`. Omit any old `dispatch`; retain
@@ -163,3 +163,9 @@ Local delivery needs this computer and Codex running; there is no reboot autosta
 or exactly-once guarantee across queue/crash uncertainty.
 
 Initialize owned legacy state with `node scripts/init-opencode.cjs --directory <project> --session <verified-empty-session> --owner <thread-id> --provider <provider-id> --model <model-id> --task <task-file> --scope <authorized-scope>`. This command does not create a remote session or send a prompt. It refuses to replace any existing state; archive an inactive cycle after inspection.
+
+A repair is a submission after rejected implementation; the initial submission is
+not a repair. Proactive simple OpenCode work permits one repair (2 submissions);
+user delegation defaults to three repairs (4 submissions). At the cap, stop the
+owned executor, preserve its rejected state, and let Codex fix remaining defects.
+Only unresolved blockers after Codex attempts repair need user discussion.

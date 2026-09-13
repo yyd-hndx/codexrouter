@@ -1,6 +1,6 @@
 {
   "name": "codexrouter",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Codex review bridge for OpenCode, Grok Build and DeepSeek Harness",
   "license": "MIT",

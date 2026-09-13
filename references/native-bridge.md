@@ -14,7 +14,7 @@ inserted between the official agent and its configured provider.
 2. Initialize with the verified owning Codex thread and exact project directory:
 
 ```powershell
-node $bridge init --config $config --backend grok-build --directory $project --owner $owner --scope 'Authorized task' --max-rounds 3 --max-runtime 1200 --stall-seconds 300 --notify async --permission allow_once
+node $bridge init --config $config --backend grok-build --directory $project --owner $owner --scope 'Authorized task' --max-rounds 4 --max-runtime 1200 --stall-seconds 300 --notify async --permission allow_once
 ```
 
 Use `--backend deepseek-harness` to select DeepSeek. Do not omit the configured
@@ -179,3 +179,9 @@ Sources: [Grok Build](https://docs.x.ai/build/overview),
 [Grok settings](https://docs.x.ai/build/settings/reference),
 [Grok source](https://github.com/xai-org/grok-build),
 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness).
+
+A repair is a submission after rejected implementation; the initial submission is
+not a repair. Proactive simple OpenCode work permits one repair (2 submissions);
+user delegation defaults to three repairs (4 submissions). At the cap, stop the
+owned executor, preserve its rejected state, and let Codex fix remaining defects.
+Only unresolved blockers after Codex attempts repair need user discussion.

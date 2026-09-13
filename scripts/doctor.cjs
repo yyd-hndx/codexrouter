@@ -1,5 +1,6 @@
 'use strict';
 const fs = require('node:fs');
+const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 const { options } = require('./options.cjs');
 function inspect(configPath, env = process.env) {
@@ -17,10 +18,26 @@ function inspect(configPath, env = process.env) {
     for (const [name, spec] of Object.entries(config.backends || {})) {
       check(name + ':routing', ['grok-build', 'deepseek-harness'].includes(name) && spec.model && spec.effort && spec.modelSelector && (name !== 'deepseek-harness' || spec.provider), 'Explicit model/effort and runtime selection required.');
       check(name + ':node', typeof spec.command === 'string' && fs.existsSync(spec.command), 'Configured Node executable must exist.');
-      check(name + ':runtime', Array.isArray(spec.args) && fs.existsSync(spec.args[0] || ''), 'Install the upstream runtime, then run configure.');
+      const runtime = spec.managedDeepseek?.runtime || (spec.args || []).find(arg => /(?:bin[\\/]grok|bin\.js)$/.test(arg)) || spec.args?.[0];
+      check(name + ':runtime', typeof runtime === 'string' && fs.existsSync(runtime), 'Install the upstream runtime, then run configure.');
       for (const key of spec.requiredEnv || []) check(name + ':credential:' + key, Boolean(env[key]), 'Value is never printed. Set this variable before a live run.');
-      const patchIndex = (spec.args || []).indexOf('--patch');
-      if (patchIndex >= 0) check(name + ':patch', fs.existsSync(spec.args[patchIndex + 1] || ''), 'Generated observer patch must exist.');
+      if (name === 'deepseek-harness' && spec.managedDeepseek) {
+        try {
+          require('./native-review/deepseek-runtime.cjs').deepseekLaunch(spec, path.resolve('deepseek-acp.patch.yml'));
+          check(name + ':observer', fs.existsSync(path.join(__dirname, 'native-review/deepseek-events.mjs')), 'Observer path is regenerated from this installation for each cycle.');
+        } catch { check(name + ':observer', false, 'Invalid managed DeepSeek launch configuration.'); }
+      } else {
+        const patchIndex = (spec.args || []).indexOf('--patch');
+        if (patchIndex >= 0) {
+          const patch = spec.args[patchIndex + 1];
+          check(name + ':patch', fs.existsSync(patch || ''), 'Observer patch must exist.');
+          if (patch && fs.existsSync(patch)) {
+            const text = fs.readFileSync(patch, 'utf8');
+            const match = text.match(/name:\s*["']?([^\r\n"']*deepseek-events\.mjs)["']?/);
+            if (match) check(name + ':observer', fs.existsSync(match[1].trim()), 'A renamed skill can leave a stale observer path; update this private patch.');
+          }
+        }
+      }
     }
   }
   return { passed: checks.every(c => c.ok), scope: configPath ? 'Local runtime and credential presence; no network/model call.' : 'Development prerequisites only; executor configuration not checked.', checks };
