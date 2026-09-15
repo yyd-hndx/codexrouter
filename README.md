@@ -6,32 +6,22 @@
 
 省掉跨工具复制需求、盯进度和搬运结果的来回折腾，让 Codex 跟进到代码验收。
 
+## 支持环境和 Agent
+
+- 环境：Windows、Codex 桌面端、Node.js 24+、PowerShell 7、Git。
+- Agent：OpenCode、Grok Build、DeepSeek Harness。
+
 ## 功能
 
-- **执行器选择**：支持 OpenCode、Grok Build、DeepSeek Harness，默认沿用执行器自己的模型和推理档位；只有用户明确指定时才固定。
+- **模型选择**：默认使用 Agent 当前配置的模型；用户明确指定时，按指定模型执行。
 - **后台执行**：配置回调后，完成结果返回原对话，期间可以继续聊天。
-- **主动分派**：简单明确的 UI、普通 CRUD 可交给已配置的 OpenCode Grok，复杂逻辑由 Codex 处理。
-- **复审修复**：主动分派最多返修 1 次，用户指定执行器默认最多返修 3 次；到上限后 Codex 接手，仍解决不了再讨论。首次实现不算返修。
 - **压缩恢复**：记录待复审结果，可选 hook 提醒对话压缩后接着处理。
 - **任务管理**：查询进度、停止任务、核对异常状态，避免重复派单。
-- **环境排查**：提供 DeepSeek Windows 权限与网络检查，以及按需启用的系统/新解析地址回退；模型请求重试留在原会话。
 
 ## 分派和返修规则
 
-你的执行器、模型、停止或“自己做”要求优先。没指定执行器时，Codex 可把范围明确的界面调整、表单接线、普通 CRUD 交给已配置的 OpenCode Grok；权限、并发、运行时协议等复杂工作由 Codex 处理。
-
-| 场景 | 最多返修 | 最多提交次数 |
-| --- | ---: | ---: |
-| Codex 主动分派的简单任务 | 1 次 | 2 次 |
-| 用户指定执行器，未另设上限 | 3 次 | 4 次 |
-
-首次实现不算返修。每次都由 Codex 独立检查代码和验证结果；到上限后停止外部执行器，由 Codex 修完。Codex 也解决不了时，再带具体问题与你讨论。只要求 review，不会擅自派发实现任务。
-
-## 断线时会怎样
-
-DeepSeek Harness 在原会话、原步骤内重试临时模型请求错误；桥接层记录重试次数、等待状态和最终错误码，不把整项任务重新提交。重试耗尽或进程异常时保留会话 ID、请求和已有结果，先核对现场；取消后不会自动重启。
-
-默认沿用系统网络。遇到已确认的 DNS 地址问题，可配置 `--dns-mode auto`，保留系统地址并补充新解析地址；不会固定 IP、跳过证书验证或偷偷换服务商。VPN、节点和服务端状态仍会影响连通性，任何 skill 都不能保证网络永不断线。
+- **分派**：用户可指定 Agent；未指定时，Codex 把简单任务交给默认 Agent（当前为 OpenCode），复杂任务自己处理。
+- **返修**：Codex 独立 review；主动分派最多返修 1 次，用户指定 Agent 默认最多返修 3 次，用户可另设上限。首次实现不算返修，到上限后由 Codex 接手修完。
 
 ## 安装和使用
 
@@ -65,9 +55,7 @@ npm run configure -- --backend deepseek-harness --runtime .runtime/deepseek/node
 npm run doctor -- --config config.local.json
 ```
 
-使用 Grok Build 或 OpenCode，见[执行器配置](references/configuration.md)。OpenCode 默认沿用当前会话已配置的 provider、model 和 effort，不需要把模型写死；只有明确指定时才传入覆盖值。
-
-DeepSeek 在 Windows 上遇到命令权限或连接超时问题，见[排查步骤](references/deepseek-troubleshooting.md)。
+使用 Grok Build 或 OpenCode，见[执行器配置](references/configuration.md)。OpenCode 不指定模型或档位时，使用它在当前项目中的默认配置；返修继续使用同一会话。
 
 ### 3. 配置完成通知
 
@@ -88,8 +76,3 @@ node scripts/owner-notify.cjs probe
 > 使用 $codexRouter，让 DeepSeek Harness 实现登录页。配置用 skill 目录下的 config.local.json。你负责检查结果，最多返修三次，之后你接手修完。
 
 把执行器和任务换成你需要的即可。
-
-
-## 当前支持范围
-
-正式接入并支持结果复审的执行器：OpenCode、Grok Build、DeepSeek Harness。ZCode 已确认存在本地 CLI，但其 app-server 使用独立协议，尚未接入本 skill 的复审状态机。

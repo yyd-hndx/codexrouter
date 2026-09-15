@@ -27,12 +27,14 @@ the channel as described in [result-delivery.md](result-delivery.md).
 2. Create a NEW session via Api POST `/session`, explicit code directory, and a
    small JSON BodyFile such as `{"title":"Current task"}`. Verify returned directory
    and empty Read/Snapshot history. If creation is ambiguous, inspect Sessions
-   before retrying. Send sets the model; no model field is needed at creation.
+   before retrying. No model field is needed at creation. Omit model and variant
+   overrides to use OpenCode's defaults for this project. A fresh session does not
+   inherit a different desktop/TUI session's temporary model selection.
 3. Archive a completed previous state in its project's `.agent-work/history`.
    Atomically initialize `status: ready_to_dispatch`, `codexThreadId`, `sessionId`,
    `sessionTitle`, `directory`, `codeDirectory`, `scope`, `sourceReport`,
    `currentTaskFile`, `latestReviewReport`, `round: 0`, `maxRounds: 4` for user delegation or `2` for proactive simple work (or user bound),
-   `model` is recorded when the provider/model is known; omit it when OpenCode will keep the session's configured selection.
+   Supply `model: {providerID, modelID}` only for an explicit override; otherwise omit it.
    `deliveryMode: async`, `submittedMessageId: null`,
    `lastReviewedAssistantMessageId: null`. Omit any old `dispatch`; retain
    `automationId` only as paused legacy metadata.
@@ -42,7 +44,7 @@ the channel as described in [result-delivery.md](result-delivery.md).
 ```powershell
 & 'ROOT\outputs\opencode-bridge.ps1' -Action Api -ApiPath '/session' -Method POST -Directory '<code-root>' -BodyFile '<creation-json>'
 & 'ROOT\outputs\opencode-bridge.ps1' -Action Snapshot -Directory '<code-root>' -SessionId '<session-id>'
-& 'ROOT\outputs\opencode-bridge.ps1' -Action Send -Directory '<code-root>' -SessionId '<session-id>' -Variant xhigh -Prompt '<absolute task path and short instructions>'
+& 'ROOT\outputs\opencode-bridge.ps1' -Action Send -Directory '<code-root>' -SessionId '<session-id>' -Prompt '<absolute task path and short instructions>'
 & 'ROOT\outputs\opencode-events.ps1' -Action Status
 ```
 
@@ -162,7 +164,7 @@ they do not abort Grok, clear the ledger or restart its server.
 Local delivery needs this computer and Codex running; there is no reboot autostart
 or exactly-once guarantee across queue/crash uncertainty.
 
-Initialize owned legacy state with `node scripts/init-opencode.cjs --directory <project> --session <verified-empty-session> --owner <thread-id> --provider <provider-id> --model <model-id> --task <task-file> --scope <authorized-scope>`. This command does not create a remote session or send a prompt. It refuses to replace any existing state; archive an inactive cycle after inspection.
+Initialize owned legacy state with `node scripts/init-opencode.cjs --directory <project> --session <verified-empty-session> --owner <thread-id> --task <task-file> --scope <authorized-scope>`. Add both `--provider` and `--model` only for an explicit model override; add `-Variant` to Send only for an explicit effort override. This command does not create a remote session or send a prompt. It refuses to replace any existing state; archive an inactive cycle after inspection.
 
 A repair is a submission after rejected implementation; the initial submission is
 not a repair. Proactive simple OpenCode work permits one repair (2 submissions);

@@ -1,6 +1,6 @@
 ---
 name: codexRouter
-description: Route clearly scoped, simple implementation tasks proactively to OpenCode Grok, or delegate to the user's chosen executor (OpenCode, Grok Build, DeepSeek Harness). Independently review results, request bounded repairs, then take over remaining fixes. Also inspect, stop, or reconcile runs; review-only requests do not authorize implementation.
+description: Route clearly scoped, simple implementation tasks proactively to the default agent (OpenCode), or delegate to the user's chosen executor (OpenCode, Grok Build, DeepSeek Harness). Independently review results, request bounded repairs, then take over remaining fixes. Also inspect, stop, or reconcile runs; review-only requests do not authorize implementation.
 ---
 
 # codexRouter
@@ -14,7 +14,7 @@ Proactive delegation applies to already-requested implementation when the user h
 not restricted executors. It does not authorize an unrelated task. When no executor
 is specified, assess the actual dependencies and uncertainty before choosing:
 
-- Clear, bounded, low-complexity work may go to **OpenCode Grok**: localized UI
+- Clear, bounded, low-complexity work may go to the default agent, **OpenCode**: localized UI
   styling/layout fixes, straightforward form wiring, or backend CRUD using existing
   validation, permission and persistence patterns. State briefly what is delegated
   and why. Delegate only when the handoff/review overhead is worthwhile.
@@ -23,7 +23,12 @@ is specified, assess the actual dependencies and uncertainty before choosing:
   protocols, context budgets, or changes to core RAG/business logic. A frontend
   symptom alone does not make the underlying bug simple. Diagnose enough first;
   extract a simple subtask only when its contract and ownership are clear.
-- Use the selected executor's existing configuration by default. Discover the configured provider/model/effort before dispatch; do not invent or overwrite one. Only pin a model or effort when the user explicitly asks for it. If the executor is unavailable, Codex can handle the simple task directly.
+- Default to the agent's currently configured model; explicit user model choices
+  take priority. With OpenCode, omit model and variant overrides unless requested;
+  fresh sessions use OpenCode's project defaults, not another UI session's picker.
+  Native Grok/DeepSeek currently use their configured bridge bindings: inspect
+  those bindings and honor an explicit override before creating a cycle.
+  Do not silently substitute a model or change an active cycle's route.
 - Explicit user executor/model/effort choices take priority over this heuristic.
   "Do it yourself," "do not delegate," pause/cancel and exclusive-executor requests
   also take priority. Review/analysis-only requests remain read-only. Routing does
@@ -99,7 +104,7 @@ implementation. The initial implementation is **not** a repair round. Bridge
 
 | Routing mode | Maximum executor repairs | Total submission cap |
 |---|---|---|
-| Codex proactively routes a simple task to OpenCode Grok | 1 | `maxRounds: 2` |
+| Codex proactively routes a simple task to OpenCode | 1 | `maxRounds: 2` |
 | User requests delegation / selects an executor, without a different limit | 3 | `maxRounds: 4` |
 
 Always set the cap at initialization; do not rely on a bridge's legacy default.

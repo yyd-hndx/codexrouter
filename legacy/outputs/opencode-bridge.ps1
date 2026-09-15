@@ -14,7 +14,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-if ($Action -eq 'Send' -and [string]::IsNullOrWhiteSpace($Prompt)) { throw 'Send requires a non-empty prompt.' }
+if ($Action -eq 'Send' -and -not $PromptFile -and [string]::IsNullOrWhiteSpace($Prompt)) { throw 'Send requires Prompt or PromptFile.' }
 $bridgeWork = Join-Path (Split-Path $PSScriptRoot -Parent) 'work\opencode-bridge'
 $credentialPath = Join-Path $bridgeWork 'credential.xml'
 $projectPath = $Directory
@@ -103,7 +103,9 @@ switch ($Action) {
         try {
             $env:OPENCODE_BRIDGE_AUTH = $headers.Authorization
             $env:OPENCODE_BRIDGE_PWSH = (Get-Command pwsh -ErrorAction Stop).Source
-            $dispatchInput = @{ action = $Action.ToLowerInvariant(); sessionId = $SessionId; directory = $Directory; prompt = $Prompt }; if (-not [string]::IsNullOrWhiteSpace($Variant)) { $dispatchInput.variant = $Variant }; $dispatchInput = $dispatchInput | ConvertTo-Json -Compress
+            $dispatchInput = @{ action = $Action.ToLowerInvariant(); sessionId = $SessionId; directory = $Directory; prompt = $Prompt }
+            if ($PSBoundParameters.ContainsKey('Variant')) { $dispatchInput.variant = $Variant }
+            $dispatchInput = $dispatchInput | ConvertTo-Json -Compress
             $dispatchInput | & (Get-Command node -ErrorAction Stop).Source (Join-Path $PSScriptRoot 'opencode-dispatch.cjs')
             if ($LASTEXITCODE -ne 0) { throw 'Dispatch helper failed. Inspect state and use Reconcile; do not resend blindly.' }
         } finally {

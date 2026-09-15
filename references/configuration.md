@@ -62,18 +62,18 @@ Start creates a local Windows-protected server credential under `legacy/work/ope
 Create a fresh empty OpenCode session using the Api action and a UTF-8 JSON BodyFile, then verify its real directory and empty history. Initialize only local owned state:
 
 ```powershell
-node scripts/init-opencode.cjs --directory $project --session <verified-session-id> --owner $env:CODEX_THREAD_ID --provider <configured-provider-id> --model <configured-model-id> --task <absolute-task-file> --scope 'Authorized change'
-& ./legacy/outputs/opencode-bridge.ps1 -Action Send -Directory $project -SessionId <verified-session-id> -Variant <configured-variant> -PromptFile <absolute-task-file>
+node scripts/init-opencode.cjs --directory $project --session <verified-session-id> --owner $env:CODEX_THREAD_ID --task <absolute-task-file> --scope 'Authorized change'
+& ./legacy/outputs/opencode-bridge.ps1 -Action Send -Directory $project -SessionId <verified-session-id> -PromptFile <absolute-task-file>
 ```
 
-No provider ID is hardcoded. The cycle records provider/model, and Send uses the explicit variant. Backend/version support and provider configuration determine which variants exist. Send refuses missing routing and checks the current cycle before posting. See [OpenCode workflow](opencode.md) for Wait, review and recovery. Do not change routing on an in-flight cycle.
+No provider ID is hardcoded. Omit model and variant to use OpenCode's project defaults. For an explicit model override, supply both `--provider` and `--model` at initialization; for an effort override, pass `-Variant` to Send. A fresh session does not inherit another UI session's temporary selection. See [OpenCode workflow](opencode.md) for Wait, review and recovery. Do not change routing on an in-flight cycle.
 
 The initializer defaults to `--delivery-mode async`. Configure the
 [owner callback channel](result-delivery.md) before Send. Explicit `direct` is
 available for foreground waiting or a verified heartbeat fallback; `events`
 retains the legacy inbox queue behavior. Initialization itself sends no callback.
 
-`init-opencode` records `sessionTitle` from optional `--title`, falling back to the authorized scope as a display label. It does not claim to fetch the actual remote title. `Send` requires an explicit nonempty `-Variant`; Snapshot and Reconcile do not select an effort.
+`init-opencode` records `sessionTitle` from optional `--title`, falling back to the authorized scope as a display label. It does not claim to fetch the actual remote title. `-Variant` is optional and must be nonempty when supplied; Snapshot and Reconcile do not select an effort.
 
 ## DeepSeek connection handling
 

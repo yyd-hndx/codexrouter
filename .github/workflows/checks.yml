@@ -14,4 +14,5 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run doctor
+      - run: node --test scripts/opencode-defaults.test.cjs
       - run: npm run check:release

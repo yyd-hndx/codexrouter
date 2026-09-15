@@ -43,8 +43,9 @@ async function dispatch(input, deps) {
         status: cycle.status, responseId: cycle.dispatch?.responseId || null, round: cycle.round };
     }
     if (!['ready_to_dispatch', 'reviewing'].includes(cycle.status)) throw Error('Send requires ready_to_dispatch or reviewing. Use Reconcile for an uncertain prior send.');
-    if (!input.prompt?.trim() || !input.variant?.trim()) throw Error('A prompt and explicit variant are required.');
-    if (!cycle.model?.providerID || !cycle.model?.modelID) throw Error('Configure cycle.model.providerID and modelID before Send.');
+    if (!input.prompt?.trim()) throw Error('A prompt is required.');
+    if (input.variant !== undefined && (typeof input.variant !== 'string' || !input.variant.trim())) throw Error('Variant must be non-empty when supplied.');
+    if (cycle.model && (!cycle.model.providerID?.trim() || !cycle.model.modelID?.trim())) throw Error('An explicit model requires both providerID and modelID.');
     const deliveryMode=cycle.deliveryMode||'async';
     if(!['async','direct','events'].includes(deliveryMode))throw Error('Unsupported delivery mode.');
     if (!Number.isInteger(cycle.round) || !Number.isInteger(cycle.maxRounds)
@@ -78,7 +79,9 @@ async function dispatch(input, deps) {
     let sendError;
     try {
       await deps.api('/session/' + cycle.sessionId + '/prompt_async', cycle, {
-        model: cycle.model, variant: input.variant, parts: [{ type: 'text', text: prompt }],
+        ...(cycle.model ? {model: cycle.model} : {}),
+        ...(input.variant !== undefined ? {variant: input.variant} : {}),
+        parts: [{ type: 'text', text: prompt }],
       });
     } catch (error) { sendError = error; }
     // Never retry POST, including ambiguous HTTP failures/timeouts.
