@@ -23,9 +23,7 @@ is specified, assess the actual dependencies and uncertainty before choosing:
   protocols, context budgets, or changes to core RAG/business logic. A frontend
   symptom alone does not make the underlying bug simple. Diagnose enough first;
   extract a simple subtask only when its contract and ownership are clear.
-- Use the configured Grok route; discover provider/model/variant before dispatch.
-  Do not invent a provider ID or silently select an unavailable model. If Grok is
-  unavailable, Codex can handle the simple task directly.
+- Use the selected executor's existing configuration by default. Discover the configured provider/model/effort before dispatch; do not invent or overwrite one. Only pin a model or effort when the user explicitly asks for it. If the executor is unavailable, Codex can handle the simple task directly.
 - Explicit user executor/model/effort choices take priority over this heuristic.
   "Do it yourself," "do not delegate," pause/cancel and exclusive-executor requests
   also take priority. Review/analysis-only requests remain read-only. Routing does
@@ -68,7 +66,7 @@ Interpret executor aliases only when context refers to the executor.
 
 | Choice | Configuration | Required reference |
 |---|---|---|
-| Proactive simple task / OpenCode | Configured Grok provider/model and explicit variant | [opencode.md](references/opencode.md) |
+| Proactive simple task / OpenCode | OpenCode's configured provider/model/variant; explicit user choices override | [opencode.md](references/opencode.md) |
 | Grok Build / `grok build` | `grok-build`, configured model/effort | [native-bridge.md](references/native-bridge.md) and [configuration.md](references/configuration.md) |
 | `deep` / `deeps` / DeepSeek Harness | `deepseek-harness`, configured provider/model/effort, Chat Completions | Same native references |
 

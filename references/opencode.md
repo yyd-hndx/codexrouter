@@ -32,7 +32,7 @@ the channel as described in [result-delivery.md](result-delivery.md).
    Atomically initialize `status: ready_to_dispatch`, `codexThreadId`, `sessionId`,
    `sessionTitle`, `directory`, `codeDirectory`, `scope`, `sourceReport`,
    `currentTaskFile`, `latestReviewReport`, `round: 0`, `maxRounds: 4` for user delegation or `2` for proactive simple work (or user bound),
-   `model: {providerID: <configured-provider>, modelID: <configured-model>}`,
+   `model` is recorded when the provider/model is known; omit it when OpenCode will keep the session's configured selection.
    `deliveryMode: async`, `submittedMessageId: null`,
    `lastReviewedAssistantMessageId: null`. Omit any old `dispatch`; retain
    `automationId` only as paused legacy metadata.

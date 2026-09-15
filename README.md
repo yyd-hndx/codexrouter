@@ -8,7 +8,7 @@
 
 ## 功能
 
-- **执行器选择**：支持 OpenCode、Grok Build、DeepSeek Harness，可指定模型和推理档位。
+- **执行器选择**：支持 OpenCode、Grok Build、DeepSeek Harness，默认沿用执行器自己的模型和推理档位；只有用户明确指定时才固定。
 - **后台执行**：配置回调后，完成结果返回原对话，期间可以继续聊天。
 - **主动分派**：简单明确的 UI、普通 CRUD 可交给已配置的 OpenCode Grok，复杂逻辑由 Codex 处理。
 - **复审修复**：主动分派最多返修 1 次，用户指定执行器默认最多返修 3 次；到上限后 Codex 接手，仍解决不了再讨论。首次实现不算返修。
@@ -65,7 +65,7 @@ npm run configure -- --backend deepseek-harness --runtime .runtime/deepseek/node
 npm run doctor -- --config config.local.json
 ```
 
-使用 Grok Build 或 OpenCode，见[执行器配置](references/configuration.md)。
+使用 Grok Build 或 OpenCode，见[执行器配置](references/configuration.md)。OpenCode 默认沿用当前会话已配置的 provider、model 和 effort，不需要把模型写死；只有明确指定时才传入覆盖值。
 
 DeepSeek 在 Windows 上遇到命令权限或连接超时问题，见[排查步骤](references/deepseek-troubleshooting.md)。
 
@@ -89,3 +89,7 @@ node scripts/owner-notify.cjs probe
 
 把执行器和任务换成你需要的即可。
 
+
+## 当前支持范围
+
+正式接入并支持结果复审的执行器：OpenCode、Grok Build、DeepSeek Harness。ZCode 已确认存在本地 CLI，但其 app-server 使用独立协议，尚未接入本 skill 的复审状态机。
