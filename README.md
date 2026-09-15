@@ -1,6 +1,6 @@
 # codexRouter
 
-一个 Codex skill：把编程任务交给 OpenCode、Grok Build 或 DeepSeek Harness，Codex 负责写清需求、接收结果、检查代码。
+一个 Codex skill：把编程任务交给 OpenCode、Grok Build、DeepSeek Harness 或 ZCode，Codex 负责写清需求、接收结果、检查代码。
 
 ## 解决的问题
 
@@ -9,7 +9,7 @@
 ## 支持环境和 Agent
 
 - 环境：Windows、Codex 桌面端、Node.js 24+、PowerShell 7、Git。
-- Agent：OpenCode、Grok Build、DeepSeek Harness。
+- Agent：OpenCode、Grok Build、DeepSeek Harness、ZCode（已有 API Key／自定义模型配置）。
 
 ## 功能
 
@@ -42,7 +42,7 @@ npm run doctor
 
 ### 2. 配置执行器
 
-三个执行器任选一个。下面以 DeepSeek Harness 为例：
+选择一个执行器即可。下面以 DeepSeek Harness 为例：
 
 ```powershell
 npm install --prefix .runtime/deepseek @deepseek-ai/dsh@0.1.5-rc.1
@@ -56,6 +56,8 @@ npm run doctor -- --config config.local.json
 ```
 
 使用 Grok Build 或 OpenCode，见[执行器配置](references/configuration.md)。OpenCode 不指定模型或档位时，使用它在当前项目中的默认配置；返修继续使用同一会话。
+
+使用 ZCode，见[接入说明](references/zcode.md)，复用桌面端已有模型配置。
 
 ### 3. 配置完成通知
 
@@ -71,8 +73,8 @@ node scripts/owner-notify.cjs probe
 
 ### 4. 开始使用
 
-在要修改的项目里对 Codex 说：
+在项目里对 Codex 说：
 
-> 使用 $codexRouter，让 DeepSeek Harness 实现登录页。配置用 skill 目录下的 config.local.json。你负责检查结果，最多返修三次，之后你接手修完。
+> 用 $codexRouter，让 DeepSeek 实现登录页，你负责 review。
 
-把执行器和任务换成你需要的即可。
+换成你要用的 Agent 和任务即可。

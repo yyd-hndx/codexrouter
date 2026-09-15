@@ -2,7 +2,7 @@
   "name": "codexrouter",
   "version": "0.3.0",
   "private": true,
-  "description": "Codex review bridge for OpenCode, Grok Build and DeepSeek Harness",
+  "description": "Codex review bridge for OpenCode, Grok Build, DeepSeek Harness and ZCode",
   "license": "MIT",
   "engines": {
     "node": ">=24"

@@ -35,6 +35,10 @@ verification and limitations. Ordinary dispatch does not require hook setup.
 
 ## Grok Build installation
 
+For ZCode's installed desktop runtime and default model discovery, see
+[ZCode setup](zcode.md). It uses the same native review command surface through
+a separate ZCode Protocol adapter; the ACP provider settings below do not apply.
+
 Run from the skill directory:
 
 ```powershell

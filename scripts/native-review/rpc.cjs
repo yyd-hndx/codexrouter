@@ -5,6 +5,7 @@ const { EventEmitter } = require('node:events');
 class Rpc extends EventEmitter {
   constructor(command, args, options) {
     super(); this.seq = 0; this.pending = new Map(); this.closed = false;
+    this.jsonrpc = options?.jsonrpc !== false;
     this.child = spawn(command, args, { ...options, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] });
     this.exit = new Promise(resolve => { this.resolveExit = resolve; });
     this.child.stderr.on('data', data => this.emit('diagnostic', data));
@@ -24,7 +25,7 @@ class Rpc extends EventEmitter {
       if (message.method) this.emit('notification', message);
     });
   }
-  write(message) { if (this.closed) throw Error('Runtime closed'); this.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', ...message }) + '\n'); }
+  write(message) { if (this.closed) throw Error('Runtime closed'); this.child.stdin.write(JSON.stringify({ ...(this.jsonrpc ? {jsonrpc:'2.0'} : {}), ...message }) + '\n'); }
   request(method, params, timeout = 45000, suppliedId) {
     const id = suppliedId || `rpc-${++this.seq}`;
     const result = new Promise((resolve, reject) => {

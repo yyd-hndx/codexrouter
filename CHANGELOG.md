@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Add ZCode Protocol v1 support using the installed desktop runtime and existing
+  API-key/custom provider configuration, with async callbacks and same-session repairs.
+- Verify completion identities and settled tool state; retain rejected/uncertain
+  results for inspection. Support stop, bounded rounds and read-only reconciliation.
+- Add protocol, failure, permission, stop and repair regression checks.
+- Shorten README usage to a single natural-language request.
+
 ## 0.3.0 - routing and DeepSeek transport recovery
 
 - Use the requested `codexRouter` skill name and portable configured executor routes.

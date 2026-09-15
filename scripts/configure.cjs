@@ -4,7 +4,22 @@ const path = require('node:path');
 const { options } = require('./options.cjs');
 function configure(input) {
   const backend = input.backend;
-  if (!['grok-build', 'deepseek-harness'].includes(backend)) throw Error('Choose grok-build or deepseek-harness.');
+  if (backend==='zcode') {
+    if(!input.runtime)throw Error('ZCode requires --runtime pointing to its installed resources/glm/zcode.cjs');
+    const output=path.resolve(input.output||'config.local.json');
+    const config=fs.existsSync(output)?JSON.parse(fs.readFileSync(output,'utf8')):{version:1,backends:{}};
+    if(config.version!==1||!config.backends||config.backends.zcode)throw Error('Invalid configuration or ZCode already configured');
+    if(Boolean(input.provider)!==Boolean(input.model))throw Error('Use both --provider and --model, or omit both');
+    const runtime=fs.realpathSync(input.runtime),command=fs.realpathSync(input.executable||process.execPath);
+    if(!fs.statSync(runtime).isFile()||!fs.statSync(command).isFile())throw Error('Runtime and executable must be files');
+    config.backends.zcode={command,args:[runtime,'app-server','--stdio','--surface','desktop'],
+      env:/zcode\.exe$/i.test(command)?{ELECTRON_RUN_AS_NODE:'1'}:{},
+      ...(input.home?{zcodeHome:path.resolve(input.home)}:{}),
+      ...(input.model?{provider:input.provider,model:input.model}:{}),...(input.effort?{effort:input.effort}:{})};
+    require('./native-review/state.cjs').save(output,config);
+    return {backend,config:output,note:'Reuses desktop configuration; no credential copied and no model request made.'};
+  }
+  if (!['grok-build', 'deepseek-harness'].includes(backend)) throw Error('Choose grok-build, deepseek-harness or zcode.');
   for (const key of ['runtime', 'model', 'effort']) if (!input[key]) throw Error('Required: --' + key);
   if (backend === 'deepseek-harness' && !input.provider) throw Error('DeepSeek requires --provider matching the runtime model list.');
   const runtime = fs.realpathSync(path.resolve(input.runtime));
@@ -53,7 +68,7 @@ function configure(input) {
   return { backend, config: output, home, note: 'Configuration only. No model request made; keys are read from the environment.' };
 }
 if (require.main === module) {
-  try { console.log(JSON.stringify(configure(options(process.argv.slice(2), ['backend', 'runtime', 'model', 'effort', 'provider', 'home', 'output', 'base-url', 'key-env', 'idle-timeout-seconds', 'dns-mode'])), null, 2)); }
+  try { console.log(JSON.stringify(configure(options(process.argv.slice(2), ['backend', 'runtime', 'executable', 'model', 'effort', 'provider', 'home', 'output', 'base-url', 'key-env', 'idle-timeout-seconds', 'dns-mode'])), null, 2)); }
   catch (e) { console.error(e.message); process.exitCode = 1; }
 }
 module.exports = { configure };

@@ -3,6 +3,7 @@ const fs = require('node:fs'); const path = require('node:path'); const crypto =
 const { spawn, execFile } = require('node:child_process'); const { Rpc } = require('./rpc.cjs');
 const {cleanup}=require('./lifecycle.cjs');
 const { now, read, save, lock, hash, assertOwner, assertSend, grokResult, deepseekResult, observe, evidence, progress } = require('./state.cjs');
+const zcode = require('./zcode.cjs');
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 function argsOf(argv) { const out = { action: argv[0] }; for (let i=1;i<argv.length;i+=2) { if (!argv[i].startsWith('--') || argv[i+1] === undefined) throw Error('Arguments require --name value'); out[argv[i].slice(2)] = argv[i+1]; } return out; }
 function settings(file) { const config = read(file); if (config.version !== 1) throw Error('Unsupported bridge config'); return config; }
@@ -50,7 +51,7 @@ async function worker(cycle) {
   const unlock=lock(path.join(cycle,'worker.lock')); let rpc,active=null,stopLoop=false,commandChain=Promise.resolve(),notifications=Promise.resolve();const nativeSessions=new Map();
   const wake=(event=state.status)=>{const dispatch=state.dispatch?.id;notifications=notifications.then(()=>{if(state.dispatch?.id===dispatch)return notify(config,state,stateFile,event)});return notifications;};
   const persist=()=>{state.updatedAt=now();save(stateFile,state)};
-  const journal=message=>{const fd=fs.openSync(path.join(cycle,'events.jsonl'),'a');try{fs.writeSync(fd,JSON.stringify({at:now(),dispatchId:active?.id||null,message})+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd)}};
+  const journal=message=>{const fd=fs.openSync(path.join(cycle,'events.jsonl'),'a');try{fs.writeSync(fd,JSON.stringify({at:now(),dispatchId:active?.id||null,message:state.backend==='zcode'?zcode.redact(message):message})+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd)}};
   const finish=async(result,error)=>{
     const run=active; if (!run) return;
     run.finished=true;
@@ -58,9 +59,9 @@ async function worker(cycle) {
     if (run.timedOut) { state.status='paused_timeout'; }
     else if(error) { state.status='paused_reconcile'; state.problem=error.message; }
     else {
-      const verdict=state.backend==='deepseek-harness'?deepseekResult(run,result,state):grokResult(run,result,state); state.status=verdict.ready?'awaiting_review':'paused_attention';
+      const verdict=state.backend==='zcode'?zcode.result(run,result,state):state.backend==='deepseek-harness'?deepseekResult(run,result,state):grokResult(run,result,state); state.status=verdict.ready?'awaiting_review':'paused_attention';
       state.submittedMessageId=verdict.requestId||run.nativeRequestId||state.submittedMessageId||result?._meta?.requestId||null;
-      state.responseId=verdict.responseId||null;state.responseEventId=run.responseEventId||null; state.stopReason=verdict.reason; state.result=result;
+      state.responseId=verdict.responseId||null;state.responseEventId=run.responseEventId||null; state.stopReason=verdict.reason; state.result=state.backend==='zcode'?zcode.redact(result):result;
       if(verdict.ready && state.problemCode==='stalled') {state.problem=null;state.problemCode=null;}
     }
     if(state.backend==='deepseek-harness') {
@@ -80,7 +81,10 @@ async function worker(cycle) {
     if(active) active.cancelling=true;
     state.status='stopping';persist();
     if(rpc&&!rpc.closed&&state.sessionId) {
-      try { rpc.notify('session/cancel',{sessionId:state.sessionId}); } catch { /* Transport already ended. */ }
+      try {
+        if(state.backend==='zcode')await rpc.request('session/stop',{sessionId:state.sessionId},6000);
+        else rpc.notify('session/cancel',{sessionId:state.sessionId});
+      } catch { /* Transport already ended. */ }
       try { await rpc.request('session/close',{sessionId:state.sessionId},6000); } catch { /* Process close below proves exit. */ }
     }
     if(rpc)await rpc.close();
@@ -97,9 +101,10 @@ async function worker(cycle) {
       state.round++;state.status='dispatching';state.submittedMessageId=null;state.responseId=null;state.responseEventId=null;state.result=null;state.problem=null;state.problemCode=null;state.progress=null;state.failure=null;state.finishedAt=null;state.stopReason=null;state.lastResponseFile=null;
       const promptFile=path.join(cycle,`prompt-${state.round}.txt`);fs.writeFileSync(promptFile,command.prompt);state.currentPromptFile=promptFile;
       active={id:dispatchId,text:'',promptHash:hash(command.prompt),tools:new Map(),promptIds:new Set(),started:Date.now(),lastProgress:Date.now(),finished:false};persist();
-      journal({direction:'out',id:dispatchId,method:'session/prompt',params:{sessionId:state.sessionId,prompt:[{type:'text',text:command.prompt}]}});
+      journal({direction:'out',id:dispatchId,method:state.backend==='zcode'?'session/send':'session/prompt',params:state.backend==='zcode'?{sessionId:state.sessionId,inputId:dispatchId,content:command.prompt}:{sessionId:state.sessionId,prompt:[{type:'text',text:command.prompt}]}});
       state.status='running';persist();
-      rpc.request('session/prompt',{sessionId:state.sessionId,prompt:[{type:'text',text:command.prompt}]},0,dispatchId).then(result=>finish(result),error=>finish(null,error)).catch(async error=>{state.status='paused_reconcile';state.problem=error.message;persist()});
+      const response=state.backend==='zcode'?zcode.prompt(rpc,state,active,command.prompt,journal):rpc.request('session/prompt',{sessionId:state.sessionId,prompt:[{type:'text',text:command.prompt}]},0,dispatchId);
+      response.then(result=>finish(result),error=>finish(null,error)).catch(async error=>{state.status='paused_reconcile';state.problem=error.message;persist()});
       return {dispatched:true,dispatchId,round:state.round,sessionId:state.sessionId};
     }
     if(command.action==='review') {
@@ -131,11 +136,14 @@ async function worker(cycle) {
   }
   try {
     state.workerPid=process.pid;state.status='starting';persist();
-    const spec=runtimeSpec(config,state,cycle);rpc=new Rpc(spec.command,spec.args,{env:spec.env,cwd:spec.cwd});state.runtimePid=rpc.child.pid;persist();
+    const spec=runtimeSpec(config,state,cycle);rpc=new Rpc(spec.command,spec.args,{env:spec.env,cwd:spec.cwd,jsonrpc:state.backend!=='zcode'});state.runtimePid=rpc.child.pid;persist();
     rpc.on('diagnostic',data=>fs.appendFileSync(path.join(cycle,'runtime.stderr.log'),data));
     rpc.on('frame',journal);
     rpc.on('invalid',()=>{if(active)active.protocolError=true});
     rpc.on('request',message=>{
+      if(state.backend==='zcode') {
+        const reply=zcode.reply(message,active,state);journal({direction:'out',...reply});rpc.write(reply);return;
+      }
       if(message.method==='session/request_permission') {
         const allow=active&&state.permission==='allow_once'&&message.params?.sessionId===state.sessionId&&!active.cancelling;
         const choices=message.params?.options;
@@ -153,13 +161,14 @@ async function worker(cycle) {
     rpc.on('notification',message=>{
       if(message.method==='review.session')nativeSessions.set(message.params.sessionId,message.params);
       if(!active||message.params?.sessionId!==state.sessionId)return;
-      observe(active,message,state);
+      if(state.backend==='zcode')zcode.observe(active,message,state);
+      else observe(active,message,state);
       if(state.problemCode==='stalled') {state.problem=null;state.problemCode=null;active.stallNotified=false;persist();}
       if(/^(compaction\/|llm\/retry|step\/start)/.test(message.params?.event?.type||'')) {state.progress=progress(active,state);persist();}
       if(active.nativeRequestId&&state.submittedMessageId!==active.nativeRequestId){state.submittedMessageId=active.nativeRequestId;persist();}
     });
-    await rpc.request('initialize',{protocolVersion:1,clientCapabilities:{},clientInfo:{name:'codex-review-bridge',version:'1'}});
-    const fresh=await rpc.request('session/new',{cwd:state.directory,mcpServers:[]});
+    if(state.backend!=='zcode')await rpc.request('initialize',{protocolVersion:1,clientCapabilities:{},clientInfo:{name:'codex-review-bridge',version:'1'}});
+    const fresh=state.backend==='zcode'?await zcode.initialize(rpc,state,config.backends.zcode):await rpc.request('session/new',{cwd:state.directory,mcpServers:[]});
     if(!fresh.sessionId)throw Error('No session identity returned');
     if(state.backend==='deepseek-harness') {
       const modelOption=fresh.configOptions?.find(o=>o.category==='model'||o.id==='model');
@@ -171,7 +180,7 @@ async function worker(cycle) {
       if(!selected.configOptions?.some(o=>o.id==='reasoning_effort'&&o.currentValue===state.effort))throw Error('DeepSeek effort mismatch');
       const observed=nativeSessions.get(fresh.sessionId),actual=observed?.header;
       if(!actual?.cwd||path.resolve(actual.cwd).toLowerCase()!==state.directory.toLowerCase()||actual.parentSession||actual.isSeeded||observed.eventCount!==0)throw Error('DeepSeek workspace/session verification failed');
-    } else {
+    } else if(state.backend!=='zcode') {
       const actual=fresh._meta?.currentWorkingDirectory;
       if(!actual||path.resolve(actual).toLowerCase()!==state.directory.toLowerCase())throw Error('Runtime workspace mismatch');
       if(fresh.models?.currentModelId!==config.backends[state.backend].modelSelector)throw Error('Runtime model mismatch');
@@ -239,7 +248,7 @@ async function main(options) {
     const state=read(path.join(cycle,'state.json'));assertOwner(state,options.owner||process.env.CODEX_THREAD_ID);
     let alive=false;try{process.kill(state.workerPid,0);alive=true}catch{}
     const eventFile=path.join(cycle,'events.jsonl');let proof={ready:false,reason:'no_dispatch'};
-    if(state.dispatch&&fs.existsSync(eventFile)) {try{proof=evidence(state,fs.readFileSync(eventFile,'utf8').trim().split('\n').map(line=>JSON.parse(line)));}catch{proof={ready:false,reason:'unreadable_evidence'};}}
+    if(state.dispatch&&fs.existsSync(eventFile)) {try{proof=(state.backend==='zcode'?zcode.evidence:evidence)(state,fs.readFileSync(eventFile,'utf8').trim().split('\n').map(line=>JSON.parse(line)));}catch{proof={ready:false,reason:'unreadable_evidence'};}}
     return {state,workerPidExists:alive,workerLock:fs.existsSync(path.join(cycle,'worker.lock')),evidence:eventFile,proof,action:'Read-only. No model request sent or replayed. Proof does not override stopped/paused state. Dead-worker continuation is manual; never resend automatically.'};
   }
   return command(cycle,options.action,options);

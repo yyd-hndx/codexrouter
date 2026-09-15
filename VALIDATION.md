@@ -1,5 +1,28 @@
 # Release validation
 
+## ZCode integration - 2026-09-15
+
+- Tested ZCode desktop 3.11.2 / runtime 0.16.5 on Windows with an existing
+  custom API-key provider. The bridge inherited the desktop's recent model and
+  reasoning choice, without copying credentials into bridge configuration.
+- A real two-submission cycle wrote a fixture file, received a Codex review,
+  edited the same file in the same session, and passed independent byte checks.
+  Both completion callbacks arrived in the original Codex conversation. The
+  completed cycle closed its runtime and removed its worker lock.
+- Eight published behavior checks cover default/explicit OpenCode routes,
+  PromptFile dispatch, ZCode route selection, permission binding, completion
+  evidence tampering, same-session repair, round limits, provider failure and stop.
+- Historical native/callback/recovery checks were run separately in an isolated
+  copy. One old discovery assertion expected explicit paths to exclude the built-in
+  path; the production discovery function has not changed. The isolated assertion
+  was updated to include that path while retaining the owner-isolation check.
+- Live coverage is a small file workflow, not arbitrary projects or every tool.
+  OAuth-only credentials, desktop browser/automation services and automatic crash
+  reattachment are outside this adapter's support. See [ZCode limits](references/zcode.md#limits).
+
+Current CI includes the focused OpenCode and ZCode tests. Older sections below
+describe the test packaging and validation at their respective release dates.
+
 ## 0.3.0 - 2026-09-13
 
 Compared the supplied 0.2.1 archive, installed skill changes and GitHub main at

@@ -1,6 +1,6 @@
 ---
 name: codexRouter
-description: Route clearly scoped, simple implementation tasks proactively to the default agent (OpenCode), or delegate to the user's chosen executor (OpenCode, Grok Build, DeepSeek Harness). Independently review results, request bounded repairs, then take over remaining fixes. Also inspect, stop, or reconcile runs; review-only requests do not authorize implementation.
+description: Route clearly scoped, simple implementation tasks proactively to the default agent (OpenCode), or delegate to the user's chosen executor (OpenCode, Grok Build, DeepSeek Harness, ZCode). Independently review results, request bounded repairs, then take over remaining fixes. Also inspect, stop, or reconcile runs; review-only requests do not authorize implementation.
 ---
 
 # codexRouter
@@ -74,9 +74,11 @@ Interpret executor aliases only when context refers to the executor.
 | Proactive simple task / OpenCode | OpenCode's configured provider/model/variant; explicit user choices override | [opencode.md](references/opencode.md) |
 | Grok Build / `grok build` | `grok-build`, configured model/effort | [native-bridge.md](references/native-bridge.md) and [configuration.md](references/configuration.md) |
 | `deep` / `deeps` / DeepSeek Harness | `deepseek-harness`, configured provider/model/effort, Chat Completions | Same native references |
+| ZCode | `zcode`, existing desktop model configuration | [zcode.md](references/zcode.md) |
 
 Use the selected backend's workflow and state; OpenCode state/commands do not apply
-to native ACP backends. Inspection, stop or recovery requests do not start a cycle.
+to native backends. ZCode uses its own protocol through the shared native bridge.
+Inspection, stop or recovery requests do not start a cycle.
 For DeepSeek on a new Windows workspace, or after tool/transport failure, use
 [DeepSeek environment checks](references/deepseek-troubleshooting.md). Session
 `ready` verifies protocol/model binding, not shell permissions or API health.

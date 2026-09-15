@@ -16,6 +16,15 @@ function inspect(configPath, env = process.env) {
     const config = JSON.parse(fs.readFileSync(configPath, 'utf8').replace(/^\uFEFF/, ''));
     check('config', config.version === 1 && Object.keys(config.backends || {}).length > 0, 'Requires version 1 and at least one backend.');
     for (const [name, spec] of Object.entries(config.backends || {})) {
+      if(name==='zcode') {
+        check('zcode:command',typeof spec.command==='string'&&fs.existsSync(spec.command),'Installed Node/Electron executable.');
+        check('zcode:runtime',typeof spec.args?.[0]==='string'&&fs.existsSync(spec.args[0]),'Installed ZCode resources/glm/zcode.cjs.');
+        try {
+          const route=require('./native-review/zcode.cjs').resolveRoute(spec,process.cwd());
+          check('zcode:routing',true,`${route.selectionSource}: ${route.model}, effort ${route.effort||'default'}`);
+        } catch(error) {check('zcode:routing',false,error.message);}
+        continue;
+      }
       check(name + ':routing', ['grok-build', 'deepseek-harness'].includes(name) && spec.model && spec.effort && spec.modelSelector && (name !== 'deepseek-harness' || spec.provider), 'Explicit model/effort and runtime selection required.');
       check(name + ':node', typeof spec.command === 'string' && fs.existsSync(spec.command), 'Configured Node executable must exist.');
       const runtime = spec.managedDeepseek?.runtime || (spec.args || []).find(arg => /(?:bin[\\/]grok|bin\.js)$/.test(arg)) || spec.args?.[0];

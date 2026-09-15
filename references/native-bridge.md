@@ -5,6 +5,10 @@ The bridge starts the official ACP process, owns its session, listens before
 submitting, and records all received protocol frames. No extra model or server is
 inserted between the official agent and its configured provider.
 
+ZCode also uses this command surface and cycle state, through its own protocol
+adapter. Read [zcode.md](zcode.md) for its configuration and completion checks;
+the ACP-specific settings below apply to Grok Build and DeepSeek only.
+
 ## Run and review
 
 1. Inspect the project instructions and authorized scope. Save the task and
